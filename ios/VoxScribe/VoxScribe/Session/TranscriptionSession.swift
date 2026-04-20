@@ -66,21 +66,27 @@ final class TranscriptionSession {
     private let serverClient: ServerClient
     private let audioCapture: AudioCapture
     private let streamingClient: StreamingClient
+    private let localRecognizer: LocalSpeechRecognizer
 
     private var sessionId: String?
     private var pumpTask: Task<Void, Never>?
     private var receiveTask: Task<Void, Never>?
+    private var localPumpTask: Task<Void, Never>?
+    private var localReceiveTask: Task<Void, Never>?
+    private var localEnabled = false
 
     init(
         vocabulary: SessionVocabulary,
         serverClient: ServerClient? = nil,
         audioCapture: AudioCapture? = nil,
-        streamingClient: StreamingClient? = nil
+        streamingClient: StreamingClient? = nil,
+        localRecognizer: LocalSpeechRecognizer? = nil
     ) {
         self.vocabulary = vocabulary
         self.serverClient = serverClient ?? ServerClient()
         self.audioCapture = audioCapture ?? AudioCapture()
         self.streamingClient = streamingClient ?? StreamingClient()
+        self.localRecognizer = localRecognizer ?? LocalSpeechRecognizer()
     }
 
     func start() async {
@@ -91,10 +97,26 @@ final class TranscriptionSession {
 
         do {
             async let tokenFuture = serverClient.fetchToken()
-            async let audioStreamFuture = audioCapture.start()
+            async let audioStreamsFuture = audioCapture.start()
             let token = try await tokenFuture
-            let audioStream = try await audioStreamFuture
+            let audioStreams = try await audioStreamsFuture
             let messages = try streamingClient.open(token: token, vocabulary: vocabulary)
+
+            // Local SFSR is behind a feature flag + best-effort. If the flag
+            // is off, or auth fails, or the recognizer is unavailable, we
+            // fall back to AAI-only partials.
+            if AppConfig.localPartialStreamingEnabled {
+                do {
+                    try await localRecognizer.start()
+                    localEnabled = true
+                    print("[TranscriptionSession] local recognizer enabled")
+                } catch {
+                    print("[TranscriptionSession] local recognizer disabled: \(error)")
+                    localEnabled = false
+                }
+            } else {
+                localEnabled = false
+            }
 
             startedAt = Date()
             phase = .running
@@ -108,13 +130,43 @@ final class TranscriptionSession {
             }
 
             pumpTask = Task { [weak self, streamingClient] in
-                for await chunk in audioStream {
+                for await chunk in audioStreams.pcm {
                     if Task.isCancelled { break }
                     do {
                         try await streamingClient.send(chunk)
                     } catch {
                         await self?.failSession(.classify(error))
                         break
+                    }
+                }
+            }
+
+            if localEnabled {
+                localPumpTask = Task { [weak self] in
+                    for await buffer in audioStreams.buffers {
+                        if Task.isCancelled { break }
+                        self?.localRecognizer.append(buffer)
+                    }
+                }
+                localReceiveTask = Task { [weak self] in
+                    guard let self else { return }
+                    for await text in self.localRecognizer.partials {
+                        self.partial = text
+                    }
+                    // Stream ended before stop() — SFSR failed (simulator
+                    // asset missing, remote cut out, etc.). Fall back to
+                    // AAI partials for the rest of the session.
+                    if case .running = self.phase {
+                        print("[TranscriptionSession] local recognizer ended; falling back to AAI partials")
+                        self.localEnabled = false
+                    }
+                }
+            } else {
+                // Drain the buffer stream so the tap doesn't block on an
+                // unbounded backlog.
+                localPumpTask = Task {
+                    for await _ in audioStreams.buffers {
+                        if Task.isCancelled { break }
                     }
                 }
             }
@@ -130,6 +182,14 @@ final class TranscriptionSession {
         audioCapture.stop()
         pumpTask?.cancel()
         pumpTask = nil
+        localPumpTask?.cancel()
+        localPumpTask = nil
+
+        if localEnabled {
+            localRecognizer.stop()
+        }
+        localReceiveTask?.cancel()
+        localReceiveTask = nil
 
         await streamingClient.close()
         receiveTask?.cancel()
@@ -153,7 +213,8 @@ final class TranscriptionSession {
         case .turn(let turn):
             if turn.endOfTurn {
                 commitFinal(turn)
-            } else {
+                if localEnabled { localRecognizer.reset() }
+            } else if !localEnabled {
                 partial = turn.transcript
             }
         case .termination:
@@ -207,6 +268,11 @@ final class TranscriptionSession {
         audioCapture.stop()
         pumpTask?.cancel()
         pumpTask = nil
+        localPumpTask?.cancel()
+        localPumpTask = nil
+        if localEnabled { localRecognizer.stop() }
+        localReceiveTask?.cancel()
+        localReceiveTask = nil
         await streamingClient.close()
         receiveTask?.cancel()
         receiveTask = nil

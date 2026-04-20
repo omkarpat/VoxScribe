@@ -168,6 +168,14 @@
 - Phase 1 pass threshold: **≥80% of seeded terms across the eval set appear exactly as specified (same spelling, same casing) in the corrected output.** Flat threshold across both scenarios — a single number keeps the harness honest and forces `coffee_hinglish` to actually work, not hide behind a lower bar.
 - Keep the harness local and lightweight. Do not build a telemetry backend for Phase 1.
 
+### 9b. Local partial streaming decision (physical device)
+- Motivation: AAI Universal-Streaming emits immutable partials gated on pauses, leaving ~10-20 s gaps mid-utterance. To mask that, we wired an optional on-device `SFSpeechRecognizer` layer that paints the live partial text while AAI still owns the finalized turn. Confirmed broken on the iOS simulator (the Siri asset isn't installed); has to be judged on hardware.
+- Gate: `AppConfig.localPartialStreamingEnabled` (currently `false`). Flip to `true` for the device evaluation.
+- Files involved: `Speech/LocalSpeechRecognizer.swift`, the dual-stream (`AudioStreams.pcm` + `AudioStreams.buffers`) path in `AudioCapture`, the `localEnabled` branch in `TranscriptionSession`, `INFOPLIST_KEY_NSSpeechRecognitionUsageDescription` in the pbxproj.
+- Pass criterion: partial text visibly refreshes ≥ every ~500 ms during continuous speech, with no regression in finalized turn accuracy.
+- If it fails on device (erratic SFSR, worse UX, or no meaningful improvement in perceived latency): delete `Speech/`, revert `AudioStreams` back to a single `AsyncStream<Data>`, drop the `localRecognizer`/`localEnabled` wiring from `TranscriptionSession`, remove the flag from `AppConfig`, and remove the `NSSpeechRecognitionUsageDescription` key. AAI partials become the only partial source.
+- If it passes: drop the flag and keep the path enabled by default.
+
 ### 10. End-to-end test
 - `uvicorn` running locally.
 - Build and run on simulator.

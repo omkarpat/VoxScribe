@@ -165,6 +165,8 @@ final class StreamingClient {
                 let endOfTurn: Bool
             }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
+            let stamp = String(format: "%.3f", Date().timeIntervalSince1970)
+            print("[StreamingClient] Turn t=\(stamp) order=\(p.turnOrder) eot=\(p.endOfTurn) len=\(p.transcript.count) text=\"\(p.transcript)\"")
             return .turn(TurnMessage(turnOrder: p.turnOrder, transcript: p.transcript, endOfTurn: p.endOfTurn))
         case "Termination":
             return .termination
