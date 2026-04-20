@@ -9,11 +9,17 @@ enum AudioCaptureError: Error {
     case engineStartFailed(Error)
 }
 
+struct AudioStreams {
+    let pcm: AsyncStream<Data>
+    let buffers: AsyncStream<AVAudioPCMBuffer>
+}
+
 @MainActor
 final class AudioCapture {
     private let engine = AVAudioEngine()
     private let outputFormat: AVAudioFormat
     private var continuation: AsyncStream<Data>.Continuation?
+    private var bufferContinuation: AsyncStream<AVAudioPCMBuffer>.Continuation?
     private var isRunning = false
 
     init() {
@@ -28,7 +34,7 @@ final class AudioCapture {
         self.outputFormat = format
     }
 
-    func start() async throws -> AsyncStream<Data> {
+    func start() async throws -> AudioStreams {
         precondition(!isRunning, "AudioCapture.start() called while already running")
 
         let granted = await AVAudioApplication.requestRecordPermission()
@@ -50,11 +56,14 @@ final class AudioCapture {
 
         let (stream, cont) = AsyncStream<Data>.makeStream(bufferingPolicy: .unbounded)
         self.continuation = cont
+        let (bufferStream, bufCont) = AsyncStream<AVAudioPCMBuffer>.makeStream(bufferingPolicy: .unbounded)
+        self.bufferContinuation = bufCont
 
         let capturedOutputFormat = outputFormat
         let tapBufferSize = AVAudioFrameCount(inputFormat.sampleRate * 0.05) // ~50 ms of input audio
 
         inputNode.installTap(onBus: 0, bufferSize: tapBufferSize, format: inputFormat) { buffer, _ in
+            bufCont.yield(buffer)
             if let data = Self.convert(buffer, converter: converter, outputFormat: capturedOutputFormat) {
                 cont.yield(data)
             }
@@ -66,12 +75,14 @@ final class AudioCapture {
         } catch {
             inputNode.removeTap(onBus: 0)
             continuation = nil
+            bufferContinuation = nil
             cont.finish()
+            bufCont.finish()
             throw AudioCaptureError.engineStartFailed(error)
         }
 
         isRunning = true
-        return stream
+        return AudioStreams(pcm: stream, buffers: bufferStream)
     }
 
     func stop() {
@@ -80,6 +91,8 @@ final class AudioCapture {
         engine.stop()
         continuation?.finish()
         continuation = nil
+        bufferContinuation?.finish()
+        bufferContinuation = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
         isRunning = false
     }
