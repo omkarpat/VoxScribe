@@ -32,6 +32,40 @@ cp .env.example .env    # then fill in ASSEMBLYAI_API_KEY and ANTHROPIC_API_KEY
 uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
+## Deploy to Railway
+
+This repo is an isolated monorepo from Railway's point of view: the deployable backend lives in [`server/`](server), while the iOS app stays local. The committed [`server/Dockerfile`](server/Dockerfile) gives Railway a deterministic way to build and run the API.
+
+1. Push your latest code to GitHub.
+2. In Railway, create a new project and choose **Deploy from GitHub repo**.
+3. After Railway creates the service, open **Settings** and set:
+   - **Root Directory**: `/server`
+   - **Healthcheck Path**: `/health`
+4. Open the service's **Variables** tab and add the server secrets there. Do not commit a real `.env` file to git.
+
+You can paste them into the Raw Editor like this:
+
+```dotenv
+ASSEMBLYAI_API_KEY=your_assemblyai_key
+ANTHROPIC_API_KEY=your_anthropic_key
+```
+
+Railway injects those values as environment variables at runtime, which matches how `server/main.py` reads them. For local development, keep using `server/.env`.
+
+5. Open **Settings > Networking** and click **Generate Domain** to get a public `https://...railway.app` URL.
+6. Once the deploy is live, verify the server with:
+
+```bash
+curl https://your-service.up.railway.app/health
+```
+
+7. Update [`ios/VoxScribe/VoxScribe/Config/AppConfig.swift`](ios/VoxScribe/VoxScribe/Config/AppConfig.swift) so `serverBaseURL` points at your Railway URL instead of the local LAN address.
+
+Notes:
+
+- You do not need to define `PORT` yourself. Railway provides it automatically, and the Dockerfile starts Uvicorn on `0.0.0.0:$PORT`.
+- Railway suggests variables from repository-root `.env` files. The root-level `.env.example` exists for that reason; the backend still uses `server/.env` locally.
+
 Smoke checks:
 
 ```bash
@@ -75,4 +109,6 @@ Audio fixtures live under `server/eval/fixtures/` (gitignored); record them per 
 
 ## Secrets
 
-`ASSEMBLYAI_API_KEY` and `ANTHROPIC_API_KEY` live in `server/.env` only. The iOS binary never contains either key.
+For local development, `ASSEMBLYAI_API_KEY` and `ANTHROPIC_API_KEY` live in `server/.env`.
+For Railway, add the same keys in the service's Variables tab or Raw Editor instead of committing them.
+The iOS binary never contains either key.
