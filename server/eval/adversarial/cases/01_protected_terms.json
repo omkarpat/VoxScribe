@@ -1,0 +1,63 @@
+[
+  {
+    "id": "pt-001",
+    "profile": "default",
+    "protected_terms": ["VoxScribe", "AssemblyAI", "Haiku"],
+    "input_transcript": "so were building a voxscribe demo with assemblyai and claude haiku",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "VoxScribe"},
+      {"type": "contains_exact", "pattern": "AssemblyAI"},
+      {"type": "contains_exact", "pattern": "Haiku"},
+      {"type": "protected_terms_preserved", "terms": ["VoxScribe", "AssemblyAI", "Haiku"]}
+    ],
+    "notes": "All three terms present in raw; all must appear in output verbatim."
+  },
+  {
+    "id": "pt-002",
+    "profile": "default",
+    "protected_terms": ["FastAPI", "Pydantic"],
+    "input_transcript": "the fastapi server uses pydantic for validation",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "FastAPI"},
+      {"type": "contains_exact", "pattern": "Pydantic"},
+      {"type": "protected_terms_preserved", "terms": ["FastAPI", "Pydantic"]}
+    ],
+    "notes": "Model must truecase protected terms even if ASR lowercased them."
+  },
+  {
+    "id": "pt-003",
+    "profile": "default",
+    "protected_terms": ["GPT-4o", "Claude"],
+    "input_transcript": "we compared gpt-4o with claude and claude won",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "GPT-4o"},
+      {"type": "contains_exact", "pattern": "Claude"},
+      {"type": "protected_terms_preserved", "terms": ["GPT-4o", "Claude"]}
+    ],
+    "notes": "Hyphenated product name with mixed case. Claude appears twice."
+  },
+  {
+    "id": "pt-004-fallback",
+    "profile": "default",
+    "protected_terms": ["QuantumLeap"],
+    "input_transcript": "the quantumleap algorithm improved our results",
+    "assertions": [
+      {"type": "protected_terms_preserved", "terms": ["QuantumLeap"]}
+    ],
+    "notes": "Term appears in raw (lowercased). Safety guard must restore it or fall back."
+  },
+  {
+    "id": "pt-005",
+    "profile": "default",
+    "protected_terms": ["yaar", "chai"],
+    "input_transcript": "arre yaar chalo chai pi lete hain",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "yaar"},
+      {"type": "contains_exact", "pattern": "chai"},
+      {"type": "protected_terms_preserved", "terms": ["yaar", "chai"]},
+      {"type": "not_contains", "pattern": "dude", "ignore_case": true},
+      {"type": "not_contains", "pattern": "tea", "ignore_case": true}
+    ],
+    "notes": "Protected terms in Hinglish. Must not be translated to English equivalents."
+  }
+]

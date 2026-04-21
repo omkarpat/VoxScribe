@@ -1,0 +1,57 @@
+[
+  {
+    "id": "sc-001",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "lets meet at 2 no actually 3",
+    "assertions": [
+      {"type": "does_not_resolve_self_correction", "markers": ["2", "3"]},
+      {"type": "contains_exact", "pattern": "actually", "ignore_case": true}
+    ],
+    "notes": "Classic self-correction. Phase 2 MUST NOT resolve to 'Let's meet at 3.' Both numbers stay."
+  },
+  {
+    "id": "sc-002",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "the budget is fifty thousand no wait a hundred thousand",
+    "assertions": [
+      {"type": "does_not_resolve_self_correction", "markers": ["fifty", "hundred"]},
+      {"type": "contains_exact", "pattern": "thousand", "ignore_case": true}
+    ],
+    "notes": "Self-correction with large numbers. Both amounts must remain."
+  },
+  {
+    "id": "sc-003",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "call it version two no actually version three",
+    "assertions": [
+      {"type": "does_not_resolve_self_correction", "markers": ["two", "three"]},
+      {"type": "contains_exact", "pattern": "version", "ignore_case": true}
+    ],
+    "notes": "Version number self-correction. Both 'two' and 'three' must stay."
+  },
+  {
+    "id": "sc-004",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "she said yes I mean no",
+    "assertions": [
+      {"type": "does_not_resolve_self_correction", "markers": ["yes", "no"]},
+      {"type": "contains_exact", "pattern": "I mean", "ignore_case": true}
+    ],
+    "notes": "Sentiment self-correction. Both polarities must survive."
+  },
+  {
+    "id": "sc-005",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "the deadline is friday no scratch that monday",
+    "assertions": [
+      {"type": "does_not_resolve_self_correction", "markers": ["friday", "monday"]},
+      {"type": "contains_exact", "pattern": "scratch that", "ignore_case": true}
+    ],
+    "notes": "'Scratch that' is a correction signal. Phase 2 leaves both days; Phase 3 would resolve."
+  }
+]

@@ -1,0 +1,63 @@
+[
+  {
+    "id": "pc-001",
+    "profile": "default",
+    "protected_terms": ["VoxScribe", "AssemblyAI"],
+    "input_transcript": "so were building a voxscribe demo with assemblyai today",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "So", "ignore_case": false},
+      {"type": "contains_exact", "pattern": "VoxScribe"},
+      {"type": "contains_exact", "pattern": "AssemblyAI"},
+      {"type": "contains_exact", "pattern": "."}
+    ],
+    "notes": "Sentence-start capitalization, protected-term casing, terminal period."
+  },
+  {
+    "id": "pc-002",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "what time is the meeting tomorrow",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "?"},
+      {"type": "contains_exact", "pattern": "What", "ignore_case": false}
+    ],
+    "notes": "Interrogative sentence needs question mark and initial cap."
+  },
+  {
+    "id": "pc-003",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "first we need to clone the repo second we need to install dependencies third we run the tests",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "First", "ignore_case": false},
+      {"type": "contains_exact", "pattern": "clone", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "dependencies", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "tests", "ignore_case": true}
+    ],
+    "notes": "Multi-sentence run-on. Sentence boundaries should be inserted. All content preserved."
+  },
+  {
+    "id": "pc-004",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "This is already correct.",
+    "assertions": [
+      {"type": "fallback_expected"}
+    ],
+    "notes": "Already-clean input — output must equal the raw input exactly (no-change stability)."
+  },
+  {
+    "id": "pc-005",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "arre yaar chalo chai pi lete hain",
+    "assertions": [
+      {"type": "not_contains", "pattern": "come on", "ignore_case": true},
+      {"type": "not_contains", "pattern": "let's drink", "ignore_case": true},
+      {"type": "not_contains", "pattern": "let us", "ignore_case": true},
+      {"type": "not_contains", "pattern": "tea", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "chai", "ignore_case": true}
+    ],
+    "notes": "Non-English (Hinglish). Must not be translated. 'chai' stays as 'chai'."
+  }
+]
