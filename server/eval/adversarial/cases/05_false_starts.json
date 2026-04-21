@@ -1,0 +1,49 @@
+[
+  {
+    "id": "fs-001",
+    "profile": "default",
+    "protected_terms": ["FastAPI"],
+    "input_transcript": "i wa i want to finish the fastapi endpoint today",
+    "assertions": [
+      {"type": "not_contains", "pattern": "wa I want", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "I want to", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "FastAPI"},
+      {"type": "contains_exact", "pattern": "today", "ignore_case": true}
+    ],
+    "notes": "Clean false-start 'i wa' before 'i want'. Stub must be stripped ('wa I want' pattern absent), full phrase ('I want to') preserved, protected term preserved."
+  },
+  {
+    "id": "fs-002",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "the the system should handle this",
+    "assertions": [
+      {"type": "not_contains", "pattern": "the the", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "system", "ignore_case": true}
+    ],
+    "notes": "Immediate word repetition ('the the') is safe to collapse."
+  },
+  {
+    "id": "fs-003",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "we we should probably refactor this module",
+    "assertions": [
+      {"type": "not_contains", "pattern": "we we", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "refactor", "ignore_case": true}
+    ],
+    "notes": "Immediate pronoun stutter ('we we') is a false start, safe to clean."
+  },
+  {
+    "id": "fs-004",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "the dog the dog chased the cat",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "dog", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "cat", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.5, "max": 1.2}
+    ],
+    "notes": "'The dog the dog' — either clean false start OR meaningful repetition for emphasis. Model should not change meaning. Checking substance stays."
+  }
+]

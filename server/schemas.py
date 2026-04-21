@@ -1,4 +1,8 @@
+from typing import Literal
+
 from pydantic import BaseModel
+
+CorrectionProfile = Literal["default", "dictation", "structured_entry"]
 
 
 class VocabularyInput(BaseModel):
@@ -22,6 +26,7 @@ class CorrectRequest(BaseModel):
     session_id: str
     vocabulary_revision: int
     protected_terms: list[str]
+    profile: CorrectionProfile = "default"
     turns: list[TurnInput]
 
 

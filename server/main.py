@@ -37,18 +37,19 @@ async def token(vocabulary: VocabularyInput):
 @app.post("/correct", response_model=CorrectResponse)
 async def correct(req: CorrectRequest):
     if len(req.turns) != 1:
-        raise HTTPException(status_code=400, detail="Phase 1 /correct accepts exactly one turn.")
+        raise HTTPException(status_code=400, detail="/correct accepts exactly one turn (multi-turn is Phase 3).")
 
     logger.info(
-        "correct session=%s revision=%d protected_terms=%d turn_order=%d",
+        "correct session=%s revision=%d profile=%s protected_terms=%d turn_order=%d",
         req.session_id,
         req.vocabulary_revision,
+        req.profile,
         len(req.protected_terms),
         req.turns[0].turn_order,
     )
 
     turn = req.turns[0]
-    cleaned = await correct_single_turn(turn.transcript, req.protected_terms)
+    cleaned = await correct_single_turn(turn.transcript, req.protected_terms, req.profile)
     segment = Segment(
         id=f"turn-{turn.turn_order}",
         source_turn_orders=[turn.turn_order],

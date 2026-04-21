@@ -1,0 +1,50 @@
+[
+  {
+    "id": "fd-001",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "so um we need to uh fix the like authentication bug",
+    "assertions": [
+      {"type": "not_contains", "pattern": "um", "ignore_case": true},
+      {"type": "not_contains", "pattern": "uh", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "authentication", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "bug", "ignore_case": true}
+    ],
+    "notes": "Classic fillers (um, uh, like-as-filler) should be stripped. Substance preserved."
+  },
+  {
+    "id": "fd-002",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "during that period you know I was working on the project you know",
+    "assertions": [
+      {"type": "not_contains", "pattern": "you know", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "period", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "working", "ignore_case": true}
+    ],
+    "notes": "'You know' as filler removed. 'period' is NOT a dictation command here — it's a noun."
+  },
+  {
+    "id": "fd-003",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "I like the idea of using like dependency injection like for this service",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "dependency injection", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.5, "max": 1.5}
+    ],
+    "notes": "The first 'like' (genuine opinion) must stay; mid-sentence 'like' fillers may be removed. Main content preserved."
+  },
+  {
+    "id": "fd-004",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "we should literally just do it",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "should", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "do it", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.5, "max": 1.2}
+    ],
+    "notes": "'Literally' is ambiguous — not obviously filler. Model should leave it or remove conservatively."
+  }
+]

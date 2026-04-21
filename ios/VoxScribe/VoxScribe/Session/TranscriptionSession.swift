@@ -62,7 +62,8 @@ final class TranscriptionSession {
     private(set) var phase: SessionPhase = .idle
     private(set) var startedAt: Date?
 
-    private let vocabulary: SessionVocabulary
+    private let vocabularyProvider: @MainActor () -> SessionVocabulary
+    private let profileProvider: @MainActor () -> CorrectionMode
     private let serverClient: ServerClient
     private let audioCapture: AudioCapture
     private let streamingClient: any StreamingTranscriberClient
@@ -76,13 +77,15 @@ final class TranscriptionSession {
     private var localEnabled = false
 
     init(
-        vocabulary: SessionVocabulary,
+        vocabulary: @escaping @MainActor () -> SessionVocabulary,
+        profile: @escaping @MainActor () -> CorrectionMode,
         serverClient: ServerClient? = nil,
         audioCapture: AudioCapture? = nil,
         streamingClient: (any StreamingTranscriberClient)? = nil,
         localRecognizer: LocalSpeechRecognizer? = nil
     ) {
-        self.vocabulary = vocabulary
+        self.vocabularyProvider = vocabulary
+        self.profileProvider = profile
         self.serverClient = serverClient ?? ServerClient()
         self.audioCapture = audioCapture ?? AudioCapture()
         self.streamingClient = streamingClient ?? AssemblyAIStreamingClient()
@@ -95,8 +98,13 @@ final class TranscriptionSession {
         segments = []
         partial = ""
 
+        // Snapshot vocabulary at session start for the ASR token. AAI can't
+        // swap keyterms mid-stream. Mid-session edits still take effect on
+        // /correct calls (which re-read the provider per turn).
+        let startVocabulary = vocabularyProvider()
+
         do {
-            async let credentialsFuture = serverClient.fetchSessionCredentials(vocabulary: vocabulary)
+            async let credentialsFuture = serverClient.fetchSessionCredentials(vocabulary: startVocabulary)
             async let audioStreamsFuture = audioCapture.start()
             let credentials = try await credentialsFuture
             let audioStreams = try await audioStreamsFuture
@@ -237,7 +245,8 @@ final class TranscriptionSession {
         segments.append(segment)
 
         guard let sessionId else { return }
-        let vocab = vocabulary
+        let vocab = vocabularyProvider()
+        let profile = profileProvider().serverProfile
         let input = TurnInput(turnOrder: turn.turnOrder, transcript: trimmed)
         let client = serverClient
 
@@ -246,6 +255,7 @@ final class TranscriptionSession {
                 let corrected = try await client.correct(
                     sessionId: sessionId,
                     vocabulary: vocab,
+                    profile: profile,
                     turns: [input]
                 )
                 self?.applyCorrection(corrected)

@@ -2,7 +2,7 @@
 
 iOS streaming dictation demo. AssemblyAI Universal-3 for live ASR over WebSocket, Claude Haiku for per-turn cleanup, and a thin FastAPI server that mints tokens and runs the correction pass. Audio never transits our server — the iOS client streams straight to AAI.
 
-See [`plan.md`](plan.md) for architecture and design principles, and [`phase1-plan.md`](phase1-plan.md) for the current milestone.
+See [`plan.md`](plan.md) for architecture and design principles, and [`phase2-plan.md`](phase2-plan.md) for the current milestone (Phase 1 is complete — see [`phase1-plan.md`](phase1-plan.md)).
 
 ## Repo layout
 
@@ -49,7 +49,10 @@ curl -X POST http://127.0.0.1:8000/token \
 2. `Config/AppConfig.swift` defaults to `http://127.0.0.1:8000` on the simulator. For a physical device, change the device branch to your machine's LAN IP.
 3. Build and run on an iPhone simulator (iOS 17+). Tap the mic, speak, and watch partials/finals roll in.
 
-In `#if DEBUG` builds the header shows a scenario picker (populated from `ios/VoxScribe/VoxScribe/Resources/demo-keyterms.json`) so you can swap between the `tech_feature` and `coffee_hinglish` biasing sets.
+Tap the gear icon in the top-left to open **Settings**, which holds:
+
+- A segmented **mode** picker (Standard / Dictation / Structured) that selects the `/correct` profile — `default`, `dictation`, or `structured_entry` server-side. The mode can be changed anytime.
+- An editable **keyterms** list: add, rename (tap a row), and swipe-to-delete. Terms bias the transcriber and are sent as `protected_terms` to `/correct`. Keyterm edits are disabled while recording — stop the session first; changes take effect on the next session. The list is persisted in `UserDefaults` and seeded with a default tech vocabulary on first launch.
 
 ## Provider abstraction
 
