@@ -8,7 +8,7 @@
 - No database
 - No queue or background jobs
 - No audio proxy
-- No provider abstraction layer
+- Thin provider boundary (one protocol, one concrete AAI impl) so a future ASR swap is mechanical; still single-provider in Phase 1.
 
 **Success criteria**
 - Partial-transcript latency (mic → on-screen) is perceptibly under 150 ms.
@@ -35,8 +35,8 @@
 
 ### 2. FastAPI endpoints
 - Load `ASSEMBLYAI_API_KEY` and `ANTHROPIC_API_KEY` from `.env` at startup; fail fast if missing.
-- `GET /health` → `{status: "ok"}`.
-- `GET /token` → calls `GET https://streaming.assemblyai.com/v3/token?expires_in_seconds=600` with the AssemblyAI key and forwards `{token, expires_in_seconds}` to the client.
+- `GET /health` → `{status: "ok", provider}`.
+- `POST /token` accepts `{keyterms_prompt: string[]}`, delegates to the configured `StreamingProvider`, and returns `{provider, token, ws_url, sample_rate, expires_in_seconds}`. The `AssemblyAIProvider` (under `server/providers/`) calls `GET https://streaming.assemblyai.com/v3/token?expires_in_seconds=600` and returns a fully-formed `wss://streaming.assemblyai.com/v3/ws?...` URL with `speech_model=u3-rt-pro`, `sample_rate=16000`, `format_turns=true`, the token, and (if non-empty) `keyterms_prompt` baked into the query string. The iOS client opens that URL verbatim.
 - `POST /correct` → real Phase 1 cleanup using the forward-compatible request shape:
   - Request:
     - `session_id`
@@ -70,7 +70,7 @@
   - simulator default: `http://127.0.0.1:8000`
   - device override: LAN IP or tunnel URL
 - `Networking/ServerClient.swift` wraps both server endpoints.
-  - `func fetchToken() async throws -> String`
+  - `func fetchSessionCredentials(vocabulary: SessionVocabulary) async throws -> SessionCredentials` where `SessionCredentials = {provider, token, wsURL, sampleRate, expiresInSeconds}`. Posts the scenario's `keytermsPrompt` so the provider bakes it into the returned `wsURL`.
   - `func correct(sessionId: String, vocabulary: SessionVocabulary, turns: [TurnInput]) async throws -> [Segment]`
 - Correction timeout: 3 seconds. On failure, caller keeps existing segments.
 - Info.plist:
@@ -97,22 +97,17 @@
 - Smoke: log chunk byte counts and cadence.
 
 ### 6. iOS — streaming client
-- `Streaming/StreamingClient.swift`: wraps `URLSessionWebSocketTask`.
-- Connects to AssemblyAI with:
-  - required audio params,
-  - `format_turns=true`,
-  - `keyterms_prompt` from `SessionVocabulary`.
+- `Streaming/StreamingTranscriberClient.swift` defines the provider-neutral protocol: `open(wsURL:sampleRate:)`, `send(_:)`, `close(terminateTimeout:)`, plus the shared `ServerMessage` enum (`.begin`, `.turn`, `.termination`) and `StreamingClientError`.
+- `Streaming/StreamingClient.swift` holds the concrete `AssemblyAIStreamingClient`: wraps `URLSessionWebSocketTask`, opens the pre-built `wsURL` returned from `/token`, sends audio as binary frames, decodes inbound AAI JSON (`Begin`, `Turn`, `Termination`, `Error`) into `ServerMessage`, and on `close()` sends `{"type":"Terminate"}`, awaits `Termination`, then cancels the task.
+- Any future provider gets a new `FooStreamingClient` implementing the same protocol; `TranscriptionSession` is the only coordination point and depends on the protocol, not the concrete class.
 - The optional streaming `prompt=...` param is deliberately left **unwired** in Phase 1. We rely on `keyterms_prompt` alone for recognition biasing. Revisit in Phase 2 only if eval shows it's warranted.
-- Sends audio as binary frames.
-- Decodes inbound JSON into a typed `ServerMessage` enum: `.begin`, `.turn`, `.termination`.
-- `close()` sends `{"type":"Terminate"}`, awaits `Termination`, then cancels the task.
 
 ### 7. iOS — session orchestrator
-- `Session/TranscriptionSession.swift` composes `ServerClient`, `SessionVocabulary`, `AudioCapture`, and `StreamingClient`.
+- `Session/TranscriptionSession.swift` composes `ServerClient`, `SessionVocabulary`, `AudioCapture`, and `any StreamingTranscriberClient` (defaults to `AssemblyAIStreamingClient`).
 - `start()`:
   - resolve session vocabulary,
-  - fetch token,
-  - open WS,
+  - fetch session credentials (`wsURL` already has the token + keyterms baked in),
+  - open the WS via the streaming client,
   - capture `session_id` from `Begin`,
   - start pumping audio chunks into the WS.
 - `stop()`:
@@ -167,8 +162,9 @@
   - manual post-edit count during dogfooding.
 - Phase 1 pass threshold: **≥80% of seeded terms across the eval set appear exactly as specified (same spelling, same casing) in the corrected output.** Flat threshold across both scenarios — a single number keeps the harness honest and forces `coffee_hinglish` to actually work, not hide behind a lower bar.
 - Keep the harness local and lightweight. Do not build a telemetry backend for Phase 1.
+- **Status**: `server/eval/run_eval.py`, `server/eval/manifest.json` (4 clips per scenario), and `server/eval/README.md` are committed. Live spot-check (tech_feature adversarial phrase, simulator) preserved 18/18 seeded terms with exact casing. The formal ≥80% gate against recorded fixtures has not been run yet — deferred.
 
-### 9b. Local partial streaming decision (physical device)
+### 9b. Local partial streaming decision (physical device) — deferred
 - Motivation: AAI Universal-Streaming emits immutable partials gated on pauses, leaving ~10-20 s gaps mid-utterance. To mask that, we wired an optional on-device `SFSpeechRecognizer` layer that paints the live partial text while AAI still owns the finalized turn. Confirmed broken on the iOS simulator (the Siri asset isn't installed); has to be judged on hardware.
 - Gate: `AppConfig.localPartialStreamingEnabled` (currently `false`). Flip to `true` for the device evaluation.
 - Files involved: `Speech/LocalSpeechRecognizer.swift`, the dual-stream (`AudioStreams.pcm` + `AudioStreams.buffers`) path in `AudioCapture`, the `localEnabled` branch in `TranscriptionSession`, `INFOPLIST_KEY_NSSpeechRecognitionUsageDescription` in the pbxproj.
@@ -179,13 +175,14 @@
 ### 10. End-to-end test
 - `uvicorn` running locally.
 - Build and run on simulator.
-- Build and run on a physical device using a LAN IP or tunnel URL, not `localhost`.
+- Build and run on a physical device using a LAN IP or tunnel URL, not `localhost` — **deferred**.
 - Record about 30 seconds of speech and verify:
   - partials appear under the latency target,
   - seeded terms survive the live path,
   - each finalized turn triggers `/correct`,
   - raw-final rows visibly swap to corrected rows,
   - `Terminate` is sent on Stop.
+- **Status**: simulator + LAN path verified; physical-device run deferred.
 
 ## Out of scope for Phase 1
 

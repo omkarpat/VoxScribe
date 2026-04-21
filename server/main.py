@@ -2,12 +2,12 @@ import logging
 import os
 import sys
 
-import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 
 from correction import correct_single_turn
-from schemas import CorrectRequest, CorrectResponse, Segment, TokenResponse
+from providers import AssemblyAIProvider, StreamingProvider
+from schemas import CorrectRequest, CorrectResponse, Segment, TokenResponse, VocabularyInput
 
 load_dotenv(override=True)
 
@@ -19,34 +19,19 @@ if missing:
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("voxscribe")
 
-ASSEMBLYAI_API_KEY = os.environ["ASSEMBLYAI_API_KEY"]
-ASSEMBLYAI_TOKEN_URL = "https://streaming.assemblyai.com/v3/token"
-TOKEN_EXPIRES_SECONDS = 600
+provider: StreamingProvider = AssemblyAIProvider(api_key=os.environ["ASSEMBLYAI_API_KEY"])
 
 app = FastAPI(title="VoxScribe")
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "provider": provider.name}
 
 
-@app.get("/token", response_model=TokenResponse)
-async def token():
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        resp = await client.get(
-            ASSEMBLYAI_TOKEN_URL,
-            params={"expires_in_seconds": TOKEN_EXPIRES_SECONDS},
-            headers={"Authorization": ASSEMBLYAI_API_KEY},
-        )
-    if resp.status_code != 200:
-        logger.error("AssemblyAI token request failed: status=%d body=%s", resp.status_code, resp.text[:200])
-        raise HTTPException(status_code=502, detail="AssemblyAI token request failed")
-    data = resp.json()
-    return TokenResponse(
-        token=data["token"],
-        expires_in_seconds=data.get("expires_in_seconds", TOKEN_EXPIRES_SECONDS),
-    )
+@app.post("/token", response_model=TokenResponse)
+async def token(vocabulary: VocabularyInput):
+    return await provider.issue_token(vocabulary)
 
 
 @app.post("/correct", response_model=CorrectResponse)

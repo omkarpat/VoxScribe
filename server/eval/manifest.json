@@ -1,0 +1,53 @@
+{
+  "_comment": "Audio clips live under server/eval/fixtures/ (gitignored). Record each clip at 16 kHz mono 16-bit PCM WAV. Speak the expected_transcript naturally — see README.md for recording tips.",
+  "clips": [
+    {
+      "clip": "tech_feature_01.wav",
+      "scenario_id": "tech_feature",
+      "expected_transcript": "We are building VoxScribe, a streaming transcription demo that uses AssemblyAI for the ASR and Claude Haiku for cleanup.",
+      "seeded_terms": ["VoxScribe", "AssemblyAI", "Claude", "Haiku"]
+    },
+    {
+      "clip": "tech_feature_02.wav",
+      "scenario_id": "tech_feature",
+      "expected_transcript": "The FastAPI server talks to AssemblyAI over a WebSocket and mints a token. The iOS app captures audio with AVAudioEngine and streams PCM frames.",
+      "seeded_terms": ["FastAPI", "AssemblyAI", "WebSocket", "AVAudioEngine", "PCM"]
+    },
+    {
+      "clip": "tech_feature_03.wav",
+      "scenario_id": "tech_feature",
+      "expected_transcript": "We are comparing Anthropic's Claude Haiku, Sonnet, and Opus models for this LLM-in-the-loop pipeline. Prompt caching keeps the system prompt warm.",
+      "seeded_terms": ["Anthropic", "Claude", "Haiku", "Sonnet", "Opus", "LLM", "prompt caching"]
+    },
+    {
+      "clip": "tech_feature_04.wav",
+      "scenario_id": "tech_feature",
+      "expected_transcript": "SwiftUI in Xcode shows the partials while the ASR runs. We use VAD on the server side and uvicorn to serve the FastAPI app.",
+      "seeded_terms": ["SwiftUI", "Xcode", "ASR", "VAD", "uvicorn", "FastAPI"]
+    },
+    {
+      "clip": "coffee_hinglish_01.wav",
+      "scenario_id": "coffee_hinglish",
+      "expected_transcript": "Arre yaar, chalo chai pi lete hain. Bhaiya ek masala chai aur ek lassi, bas.",
+      "seeded_terms": ["arre", "yaar", "chalo", "chai", "bhaiya", "masala", "lassi", "bas"]
+    },
+    {
+      "clip": "coffee_hinglish_02.wav",
+      "scenario_id": "coffee_hinglish",
+      "expected_transcript": "Accha didi, ek paratha aur ek samosa bhi, matlab theek hai, haan bhai sab kuchh chalega.",
+      "seeded_terms": ["accha", "didi", "paratha", "samosa", "matlab", "theek hai", "haan", "bhai"]
+    },
+    {
+      "clip": "coffee_hinglish_03.wav",
+      "scenario_id": "coffee_hinglish",
+      "expected_transcript": "Mumbai ki biryani alag hai na, Delhi wali bhi accha hai, aur Bengaluru mein bhi desi cafe mil jate hain.",
+      "seeded_terms": ["Mumbai", "biryani", "na", "Delhi", "accha", "Bengaluru", "desi"]
+    },
+    {
+      "clip": "coffee_hinglish_04.wav",
+      "scenario_id": "coffee_hinglish",
+      "expected_transcript": "Kya yaar, yeh jugaad kaam karega, timepass ke liye bas pani pila do.",
+      "seeded_terms": ["kya", "yaar", "jugaad", "timepass", "bas", "pani"]
+    }
+  ]
+}

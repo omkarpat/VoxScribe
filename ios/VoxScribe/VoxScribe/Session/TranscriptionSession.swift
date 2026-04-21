@@ -65,7 +65,7 @@ final class TranscriptionSession {
     private let vocabulary: SessionVocabulary
     private let serverClient: ServerClient
     private let audioCapture: AudioCapture
-    private let streamingClient: StreamingClient
+    private let streamingClient: any StreamingTranscriberClient
     private let localRecognizer: LocalSpeechRecognizer
 
     private var sessionId: String?
@@ -79,13 +79,13 @@ final class TranscriptionSession {
         vocabulary: SessionVocabulary,
         serverClient: ServerClient? = nil,
         audioCapture: AudioCapture? = nil,
-        streamingClient: StreamingClient? = nil,
+        streamingClient: (any StreamingTranscriberClient)? = nil,
         localRecognizer: LocalSpeechRecognizer? = nil
     ) {
         self.vocabulary = vocabulary
         self.serverClient = serverClient ?? ServerClient()
         self.audioCapture = audioCapture ?? AudioCapture()
-        self.streamingClient = streamingClient ?? StreamingClient()
+        self.streamingClient = streamingClient ?? AssemblyAIStreamingClient()
         self.localRecognizer = localRecognizer ?? LocalSpeechRecognizer()
     }
 
@@ -96,11 +96,11 @@ final class TranscriptionSession {
         partial = ""
 
         do {
-            async let tokenFuture = serverClient.fetchToken()
+            async let credentialsFuture = serverClient.fetchSessionCredentials(vocabulary: vocabulary)
             async let audioStreamsFuture = audioCapture.start()
-            let token = try await tokenFuture
+            let credentials = try await credentialsFuture
             let audioStreams = try await audioStreamsFuture
-            let messages = try streamingClient.open(token: token, vocabulary: vocabulary)
+            let messages = try streamingClient.open(wsURL: credentials.wsURL, sampleRate: credentials.sampleRate)
 
             // Local SFSR is behind a feature flag + best-effort. If the flag
             // is off, or auth fails, or the recognizer is unavailable, we
@@ -191,7 +191,7 @@ final class TranscriptionSession {
         localReceiveTask?.cancel()
         localReceiveTask = nil
 
-        await streamingClient.close()
+        await streamingClient.close(terminateTimeout: 2.0)
         receiveTask?.cancel()
         receiveTask = nil
 
@@ -273,7 +273,7 @@ final class TranscriptionSession {
         if localEnabled { localRecognizer.stop() }
         localReceiveTask?.cancel()
         localReceiveTask = nil
-        await streamingClient.close()
+        await streamingClient.close(terminateTimeout: 2.0)
         receiveTask?.cancel()
         receiveTask = nil
         phase = .failed(error)

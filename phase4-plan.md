@@ -69,6 +69,7 @@ Every failure has a defined banner + recovery:
 - Multi-device sync (requires auth + backend DB).
 - Team / shared transcripts.
 - Translation, summarization, any post-session LLM features.
+- Multilingual model routing / Whisper fallback. Keep this as a future enhancement after the core English-first product is solid.
 
 ## Open questions / risks
 
