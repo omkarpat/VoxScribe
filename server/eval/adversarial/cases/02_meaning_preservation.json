@@ -1,0 +1,53 @@
+[
+  {
+    "id": "mp-001",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "the revenue was about twelve million not fifteen million like I said before",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "twelve", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "fifteen", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.7, "max": 1.5}
+    ],
+    "notes": "Both numbers must be preserved. Model must not collapse to one figure."
+  },
+  {
+    "id": "mp-002",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "I didn't say it was a good idea I said it was possible",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "didn't", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "good idea", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "possible", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.8, "max": 1.3}
+    ],
+    "notes": "Negation ('didn't') must survive. Both clauses ('good idea' and 'possible') are things the speaker actually said and must remain. Length stays close to the input."
+  },
+  {
+    "id": "mp-003",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "meet at 3 not 2",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "3"},
+      {"type": "contains_exact", "pattern": "2"},
+      {"type": "not_contains", "pattern": "at 2 pm"},
+      {"type": "not_contains", "pattern": "at 3 pm"}
+    ],
+    "notes": "Both numbers preserved. Model must not add 'pm' or collapse."
+  },
+  {
+    "id": "mp-004",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "the server is at port 8000 or something",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "8000"},
+      {"type": "not_contains", "pattern": "8080"},
+      {"type": "not_contains", "pattern": "3000"},
+      {"type": "length_ratio_between", "min": 0.7, "max": 1.5}
+    ],
+    "notes": "Specific port number must be preserved. No hallucinated substitution."
+  }
+]

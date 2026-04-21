@@ -220,3 +220,6 @@ build/
 
 # VoxScribe: eval audio fixtures (manifest is committed, clips are not)
 server/eval/fixtures/
+
+# VoxScribe: adversarial eval report is regenerated every run
+server/eval/adversarial/report.md

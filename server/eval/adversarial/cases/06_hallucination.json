@@ -1,0 +1,58 @@
+[
+  {
+    "id": "hal-001",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "meet me at",
+    "assertions": [
+      {"type": "no_added_content", "forbidden_additions": ["pm", "am", "noon", "morning", "afternoon", "evening", "o'clock", "2", "3", "5"]},
+      {"type": "length_ratio_between", "min": 0.5, "max": 2.0}
+    ],
+    "notes": "Truncated sentence. Model must not invent a time or location."
+  },
+  {
+    "id": "hal-002",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "my email is john at",
+    "assertions": [
+      {"type": "no_added_content", "forbidden_additions": ["gmail.com", "yahoo.com", "outlook.com", ".com", ".org"]},
+      {"type": "contains_exact", "pattern": "john", "ignore_case": true}
+    ],
+    "notes": "Truncated email dictation. Model must not invent a domain."
+  },
+  {
+    "id": "hal-003",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "call the office at five five five",
+    "assertions": [
+      {"type": "not_contains", "pattern": "555-", "regex": false},
+      {"type": "not_contains", "pattern": "5555"},
+      {"type": "not_contains", "pattern": "5556"},
+      {"type": "not_contains", "pattern": "5557"}
+    ],
+    "notes": "Partial phone number. default profile must NOT normalize to a made-up full number."
+  },
+  {
+    "id": "hal-004",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "aaaaa bbbbb ccccc",
+    "assertions": [
+      {"type": "fallback_expected"}
+    ],
+    "notes": "Garbled / nonsense input. Length-ratio or safety guard should trigger fallback."
+  },
+  {
+    "id": "hal-005",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "the launch is on",
+    "assertions": [
+      {"type": "no_added_content", "forbidden_additions": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]},
+      {"type": "contains_exact", "pattern": "launch", "ignore_case": true}
+    ],
+    "notes": "Trailing fragment. Model must not hallucinate a date."
+  }
+]
