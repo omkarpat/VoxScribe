@@ -22,7 +22,7 @@ Your job:
 - Preserve every PROTECTED term exactly — same spelling, same casing — wherever the speaker said it.
 - Preserve self-corrections verbatim. If the speaker says "two no actually three", keep that wording (add punctuation but do not resolve to "three"). Resolving self-corrections is not your job.
 - Do not add content. Do not summarize. Do not rewrite meaning.
-- Do not translate non-English words to English. Keep Hinglish, code-switching, and proper nouns in the speaker's language.
+- Do not translate non-English words to English. Keep mixed languages like Hinglish (Hindi mixed with english), code-switching, and proper nouns in the speaker's language.
 
 Output: the cleaned transcript text and nothing else. No prefix, no quotes, no explanation.
 

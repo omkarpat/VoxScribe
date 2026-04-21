@@ -2,7 +2,7 @@
 
 iOS streaming dictation demo. AssemblyAI Universal-3 for live ASR over WebSocket, Claude Haiku for per-turn cleanup, and a thin FastAPI server that mints tokens and runs the correction pass. Audio never transits our server — the iOS client streams straight to AAI.
 
-See [`plan.md`](plan.md) for architecture and design principles, and [`phase1-plan.md`](phase1-plan.md) for the current milestone.
+See [`plan.md`](plan.md) for architecture and design principles, and [`phase2-plan.md`](phase2-plan.md) for the current milestone (Phase 1 is complete — see [`phase1-plan.md`](phase1-plan.md)).
 
 ## Repo layout
 

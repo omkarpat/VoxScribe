@@ -1,93 +1,109 @@
-# Phase 2 — Per-turn correction + dictation + export
+# Phase 2 — `/correct` v2 + adversarial evals
 
-Rough outline. Task-level breakdown will be filled in when Phase 2 starts.
+**Goal**: Harden the per-turn correction layer behind an adversarial eval suite that catches the specific ways Haiku can quietly degrade output — hallucinated content, protected-term mutation, meaning drift, unintended self-correction. Phase 2 does **not** change the live streaming path, the WebSocket plumbing, or the client UI in any material way; the whole phase is backend prompt work gated by tests.
 
-**Goal**: Build on the Phase 1 demo path by tightening per-turn correction, enabling dictation commands, supporting dynamic vocabulary updates, and letting users copy/export what they see. Phase 2 stays English-first; multilingual model routing remains a future enhancement.
+## Non-goals (moved to later phases)
+
+- Streaming prompt templates (`prompt` query param wiring) — **Phase 4**
+- `UpdateConfiguration` mid-session keyterm / prompt updates — **Phase 4**
+- Dictation mode (UI toggle, spoken-punctuation handling, `ForceEndpoint` on terminal commands) — **Phase 4**
+- Copy / export toolbar buttons — **Phase 4**
+- Multilingual routing / `whisper-rt` fallback — **Future additions** (see `plan.md`)
+- Multi-turn or windowed rewrite, cross-turn self-correction — **Phase 3** (also an explicit regression guard in Phase 2's eval suite)
 
 ## Deliverables
 
-### 1. Per-turn `/correct` v2
-- Provider: Anthropic API, model `claude-haiku-4-5`.
-- System prompt (prompt-cached) tightens the Phase 1 cleanup behavior:
+### 1. `/correct` v2 prompt
+
+- Provider: Anthropic API, `claude-haiku-4-5`.
+- System prompt is prompt-cached and tightens Phase 1's cleanup behavior:
   - restore punctuation,
-  - truecase proper nouns + sentence starts,
-  - remove filler words when clearly filler,
+  - truecase proper nouns and sentence starts,
+  - remove filler words when clearly filler (um / uh / you know / like-as-filler),
   - fix within-turn false starts,
-  - preserve `protected_terms` exactly.
-- Output keeps the existing `segments[]` shape.
-- Hard constraints in prompt:
+  - preserve `protected_terms` exactly as provided.
+- Hard constraints baked into the prompt:
   - never add content,
   - never change meaning,
   - never summarize,
-  - preserve the speaker's voice.
-- Safety checks:
-  - if corrected text's length deviates too far from input, fall back to raw;
-  - if a protected term disappears or mutates unexpectedly, fall back to raw.
-- Window stays single-turn — multi-turn is Phase 3.
-- Phase 2 goal is to make these edits smaller and more deterministic by pushing more formatting/context work into AssemblyAI upstream.
+  - preserve the speaker's voice and register,
+  - do **not** resolve cross-turn or within-turn self-corrections — leave "two, no actually three" intact (self-correction is a Phase 3 capability).
+- Output preserves Phase 1's `segments[]` shape. No API contract changes.
 
-### 2. Limited streaming prompting
-- Add an optional `prompt` parameter to `StreamingClient.open(...)`.
-- Support exactly two prompt templates in Phase 2:
-  - default dictation,
-  - structured-entry mode for things like emails, phone numbers, and names.
-- When customizing the live prompt, build off AssemblyAI's default turn-detection-friendly rules rather than inventing a prompt from scratch.
-- No free-form prompt editor or arbitrary prompt generation in Phase 2.
+### 2. Safety guards (server-side, deterministic)
 
-### 3. Dynamic streaming configuration updates
-- Use AssemblyAI `UpdateConfiguration` to refresh `keyterms_prompt` and `prompt` mid-session when the active vocabulary or prompt mode changes.
-- Sources for updates:
-  - current document or screen context,
-  - recent user corrections,
-  - explicit session overrides for the demo.
-- Keep the live streaming prompt conservative even after adding dynamic keyterms or prompt switching.
+Each `/correct` response is validated before return. Any failure falls back to the raw input for that turn:
 
-### 4. Dictation mode
-- UI toggle: Dictation ON / OFF. Default OFF.
-- When ON: select the dictation-oriented streaming prompt template and keep the correction prompt aligned with the same behavior.
-- Interpret spoken punctuation words ("period", "comma", "question mark", "new paragraph", "new line") as punctuation rather than literal text.
-- Why server-side and not client regex: handles plural/variant forms ("new paragraphs", "new line please") naturally, scales to more commands, keeps client dumb.
-- `ForceEndpoint` sent to AssemblyAI whenever a terminal command ("period", "question mark") is detected in a partial — ends the turn promptly rather than waiting for silence.
+- **Length deviation**: if `|len(out) - len(in)| / len(in) > 0.5`, fallback.
+- **Protected-term mutation**: every term in `protected_terms` that was present in the input must be present in the output (case-sensitive), else fallback.
+- **Schema violation**: malformed JSON, wrong field shape, or wrong segment count for a single-turn input — fallback.
 
-### 5. Copy / export
-- "Copy" toolbar button: concatenates user-visible text (corrected where available, raw fallback), copies plain text to pasteboard.
-- "Share" toolbar button: same text via `UIActivityViewController` — save to Files, AirDrop, email, etc.
-- No server round-trip for export — everything is already on device.
+Each fallback is structured-logged with a reason code so the eval harness can track fallback rate per category.
+
+### 3. Adversarial eval suite
+
+New harness under `server/eval/adversarial/`:
+
+- **Case format** (JSON per category):
+  - `id`,
+  - `input_transcript` (single-turn raw text),
+  - `protected_terms`,
+  - one or more `assertions` (see below),
+  - optional `notes` / `source`.
+- **Assertions** — deterministic only, no LLM-as-judge:
+  - `contains_exact` / `not_contains` (substring or regex),
+  - `protected_terms_preserved` (all listed terms appear verbatim in output),
+  - `length_ratio_between` (min, max),
+  - `does_not_resolve_self_correction` (input tokens like "two" and "three" both still present in output),
+  - `no_added_semantic_content` (no token from `forbidden_additions` appears),
+  - `fallback_expected` (case is engineered to trip a safety guard — assertion is that output equals raw input).
+- **Categories (initial seed)**:
+  1. Protected-term fidelity
+  2. Meaning preservation (length + forbidden-substring)
+  3. Self-correction regression guard (must **not** resolve in Phase 2)
+  4. Filler discipline (filler removed, quoted / intentional filler preserved)
+  5. Within-turn false-start cleanup (positive cases)
+  6. Hallucination resistance (truncated / garbled input)
+  7. Punctuation and casing (positive cases)
+- **Runner**: hits the real `/correct` endpoint (local FastAPI), records pass/fail per case, aggregates per-category pass rate and per-category fallback rate, writes a markdown report.
+- **Gates**:
+  - Protected-term fidelity: ≥95% pass.
+  - Self-correction regression guard: **100%** pass (non-negotiable — self-correction is Phase 3).
+  - All other categories: ≥85% pass.
+  - Overall fallback rate on positive cases: <5% (high fallback means the prompt is too cautious).
+- **Invocation**: `python -m server.eval.adversarial` — single command, prints report, non-zero exit on gate failure.
+- **Flakiness control**: each case runs N times (default N=3); pass requires a majority of runs pass. Surfaces Haiku variance without letting it hide.
+
+### 4. Prompt-cache telemetry
+
+- Log cache-read tokens vs cache-creation tokens per `/correct` call.
+- Aggregate in the eval runner so prompt edits that break cache hit rate become visible.
 
 ## Guiding principles (Phase 2 specifics)
 
-- **Per-turn only.** Don't prematurely build window-management machinery; Phase 3 owns that.
-- **Dictation lives in the prompt, not the client.** The LLM is already in the loop for correction; overloading it with command interpretation is free.
-- **Use AssemblyAI upstream for deterministic shaping.** Prompt templates and mid-stream `UpdateConfiguration` should absorb easy formatting/context work before we ask Haiku to fix anything.
-- **Two prompt templates are enough.** Resist prompt sprawl; Phase 2 needs constrained modes, not a prompt-design playground.
-- **Dynamic keyterms beat a heavier live prompt.** When live accuracy needs help, update `keyterms_prompt` before adding more prompt complexity.
-- **Haiku is not the long-term home for formatting glue.** The more AssemblyAI can handle punctuation, language framing, and structured-entry behavior upstream, the more Haiku can narrow toward semantic cleanup in Phase 3.
-- **Multilingual routing is future work.** Language detection, whisper fallback, and multilingual prompt policy are valuable but not on the critical path for the first strong product.
-- **Export reflects what the user sees.** If the user is reading corrected text, that's what gets copied. Raw-only fallback is acceptable but the mental model is "copy what I see."
-- **No regressions to the 150 ms hot path.** Haiku latency (200–500 ms typical) affects the raw-final → corrected swap, not partial rendering.
+- **The eval suite is the spec.** The prompt is only "done" when the suite passes at the gates. No vibes, no manual spot-checks as proof.
+- **Adversarial > representative.** Phase 1's eval measures "does it mostly work." Phase 2's suite measures "does it break in the specific ways we've decided are unacceptable."
+- **Deterministic assertions only.** LLM-as-judge creates correlated-failure risk — the grader and the generator share biases. Every assertion is substring / regex / length / set-membership.
+- **Self-correction is a Phase 3 capability.** If Phase 2's prompt accidentally resolves "two, no three" → "three", that's a regression to catch, not an early feature to enjoy.
+- **Fallback to raw beats clever recovery.** When a safety guard trips, the raw text stays. No second attempt, no partial accept.
+- **No live-path changes.** Audio capture, WS lifecycle, and UI stay exactly as Phase 1 shipped. Phase 2 is all backend prompt + tests.
 
 ## Success criteria
 
-- 30-second real-voice session: finalized turns visibly become "corrected" within ~1 s of the raw final.
-- Prompt mode switch mid-session updates the streaming config without reconnecting.
-- Dynamic vocabulary update: add a new term mid-session and see subsequent live ASR pick it up more reliably.
-- Dictation ON: speaking "remind me to buy milk period new paragraph" produces `Remind me to buy milk.\n\n` in the transcript.
-- Copy produces the expected text; share sheet works end-to-end.
-- No observable partial-latency regression vs Phase 1.
-- Per-session Haiku cost measurable and logged.
+- Adversarial eval suite passes all category gates.
+- Prompt-cache hit rate ≥80% on typical sessions (measured via cache-read / cache-creation tokens).
+- Per-session Haiku cost recorded and within budget (target: <$0.30 for a 10-minute session).
+- Phase 1's existing `server/eval/run_eval.py` still passes its seeded-term threshold after the prompt change (guards against recognition-path regressions from overlooked interactions).
 
 ## Out of scope
 
-- Multi-turn / cross-turn correction (Phase 3).
-- Rolling session memory for frozen context (Phase 3).
-- Multilingual support and language-driven model fallback (`u3-rt-pro` → `whisper-rt`).
-- User-editable vocabulary settings UI (Phase 4).
-- Reconnection, interruption handling (Phase 4).
-- Pricing / model tier UI (not required).
-- Free-form prompt authoring UI (not required).
+- Everything listed under "Non-goals" above.
+- Streaming response from Anthropic (if Haiku p99 > 1 s hurts perceived UX, revisit alongside Phase 3's rewrite work).
+- LLM-as-judge evaluation.
 
 ## Open questions / risks
 
-- **Haiku latency variance**: p99 could be >1 s. If it noticeably degrades UX, explore streaming the Anthropic response and applying partial corrections as they generate.
-- **Dictation command false positives**: e.g. user says "period" as part of a sentence ("during that period..."). The LLM has to infer from context. May need a confidence signal or a "strict mode" where only turn-terminal commands are interpreted.
-- **Prompt drift / turn-detection regressions**: a clever live prompt can quietly damage endpointing. Mitigation: start from AssemblyAI's default prompt behavior, keep only two templates, and rerun the eval set whenever prompts change.
+- **Adversarial coverage gaps**: any hand-authored case suite has blind spots. Mitigation: expand the suite whenever a real-voice regression is observed.
+- **Prompt over-fitting to the suite**: a prompt tuned to exactly satisfy these cases can still fail on the next real-voice session. Mitigation: keep a small separate live-voice smoke test that isn't part of the gate.
+- **Haiku variance**: a single call can produce different output across runs. Mitigation: N-times repetition with majority-pass (see §3).
+- **Fallback-rate vs pass-rate tension**: cautious prompts can push both pass rate and fallback rate up. Mitigation: gate on both.

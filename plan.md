@@ -161,7 +161,7 @@ Goal: partials render in under 150 ms from AssemblyAI, raw finals appear immedia
 | Phase | `/correct` does | Examples |
 |---|---|---|
 | 1 | Minimal single-turn cleanup via Claude Haiku | punctuation, truecasing, preserve protected terms, light filler removal |
-| 2 | Stronger per-turn cleanup + dictation semantics | spoken punctuation commands, limited streaming prompt templates, dynamic mid-stream prompt/keyterm updates |
+| 2 | Stronger single-turn cleanup gated by an adversarial eval suite | tighter punctuation / truecase / filler handling, within-turn false-start cleanup, deterministic safety guards (length, protected-term mutation, schema) with raw fallback |
 | 3 | **Windowed semantic rewrite** via Claude Haiku + rolling session memory | cross-turn self-correction ("let's meet at 2 no actually 3" → "Let's meet at 3.") with older frozen context compressed into a compact memory object |
 
 **Self-correction is exclusively a Phase 3 capability.** Phases 1 and 2 do not resolve self-corrections, whether within a single turn ("two no actually three" spoken without pause) or across turns. Earlier phases will punctuate such utterances but leave the meaning verbatim.
@@ -251,10 +251,11 @@ Rules:
 
 ### Model and prompt strategy
 
-- **Streaming ASR:** Phase 1 uses conservative `keyterms_prompt` only. Phase 2 wires a small set of English-first streaming prompt templates and `UpdateConfiguration` for mid-session `prompt` / `keyterms_prompt` changes. The live prompt stays narrow and instruction-like so we do not trade away turn detection for cleverness.
+- **Streaming ASR:** Phases 1 and 2 use conservative `keyterms_prompt` only. Phase 4 wires a small set of English-first streaming prompt templates and `UpdateConfiguration` for mid-session `prompt` / `keyterms_prompt` changes. The live prompt stays narrow and instruction-like so we do not trade away turn detection for cleverness.
 - **Phase 1 `/correct`:** single-turn cleanup prompt that preserves meaning and protected spellings.
+- **Phase 2 `/correct`:** tighter single-turn prompt, prompt-cached, with deterministic server-side safety guards (length deviation, protected-term mutation, schema) and raw fallback on guard failure. Gated by an adversarial eval suite under `server/eval/adversarial/`.
 - **Phase 3 `/correct`:** windowed rewrite prompt with explicit examples for self-corrections, structured output, and compact `session_memory` to carry older frozen context forward without replaying the whole transcript.
-- Prompt caching matters once the correction prompt gets larger, but it is secondary to getting the right data and contract shape first.
+- Prompt caching is load-bearing from Phase 2 onward — track cache-read vs cache-creation tokens so prompt edits that break cache hit rate are visible.
 
 ### Future multilingual path
 
@@ -306,10 +307,10 @@ Cross-cutting rules that govern every phase. If a proposal violates one of these
 
 ## Roadmap
 
-- **Phase 1 (v1)** — core streaming loop, session vocabulary biasing via `keyterms_prompt`, minimal single-turn `/correct`, configurable simulator/device server URL, and an initial eval harness. See `phase1-plan.md`.
-- **Phase 2** — dynamic vocabulary updates, dictation mode, copy/export, and stronger per-turn correction without harming the hot path.
+- **Phase 1 (v1, completed)** — core streaming loop, session vocabulary biasing via `keyterms_prompt`, minimal single-turn `/correct`, configurable simulator/device server URL, and an initial eval harness. See `phase1-plan.md`.
+- **Phase 2** — stronger single-turn `/correct` gated by an adversarial eval suite; no live-path changes. See `phase2-plan.md`.
 - **Phase 3 (hard requirement)** — windowed semantic rewrite in `/correct`, commit points, and structural row replacement using explicit replacement semantics.
-- **Phase 4** — polish: reconnect, audio session interruptions, editable vocabulary UI, accessibility audit, and observability hardening.
+- **Phase 4** — polish & live-path enrichment: reconnect, audio session interruptions, streaming prompt templates, mid-session `UpdateConfiguration`, dictation mode, copy/export, editable vocabulary UI, accessibility audit, and observability hardening.
 - **Phase 5** — deployment: containerize the server, ship TestFlight, add production safety rails.
 
 ## Future additions
