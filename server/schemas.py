@@ -1,8 +1,15 @@
 from pydantic import BaseModel
 
 
+class VocabularyInput(BaseModel):
+    keyterms_prompt: list[str] = []
+
+
 class TokenResponse(BaseModel):
+    provider: str
     token: str
+    ws_url: str
+    sample_rate: int
     expires_in_seconds: int
 
 

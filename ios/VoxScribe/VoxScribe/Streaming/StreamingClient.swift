@@ -1,33 +1,7 @@
 import Foundation
 
-struct BeginMessage: Sendable, Equatable {
-    let id: String
-    let expiresAt: Int?
-}
-
-struct TurnMessage: Sendable, Equatable {
-    let turnOrder: Int
-    let transcript: String
-    let endOfTurn: Bool
-}
-
-enum ServerMessage: Sendable, Equatable {
-    case begin(BeginMessage)
-    case turn(TurnMessage)
-    case termination
-}
-
-enum StreamingClientError: Error {
-    case invalidURL
-    case notConnected
-    case transport(String)
-    case decoding(String)
-    case closedByServer(code: Int, reason: String?)
-}
-
 @MainActor
-final class StreamingClient {
-    private let endpoint: URL
+final class AssemblyAIStreamingClient: StreamingTranscriberClient {
     private let session: URLSession
     private var task: URLSessionWebSocketTask?
     private var readerTask: Task<Void, Never>?
@@ -35,39 +9,14 @@ final class StreamingClient {
     private var terminationContinuation: CheckedContinuation<Void, Never>?
     private var isClosing = false
 
-    init(
-        endpoint: URL = URL(string: "wss://streaming.assemblyai.com/v3/ws")!,
-        session: URLSession = .shared
-    ) {
-        self.endpoint = endpoint
+    init(session: URLSession = .shared) {
         self.session = session
     }
 
-    func open(
-        token: String,
-        vocabulary: SessionVocabulary,
-        sampleRate: Int = 16000
-    ) throws -> AsyncStream<ServerMessage> {
-        precondition(task == nil, "StreamingClient.open() called while already open")
+    func open(wsURL: URL, sampleRate: Int = 16000) throws -> AsyncStream<ServerMessage> {
+        precondition(task == nil, "AssemblyAIStreamingClient.open() called while already open")
 
-        guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else {
-            throw StreamingClientError.invalidURL
-        }
-        var items: [URLQueryItem] = [
-            URLQueryItem(name: "speech_model", value: "u3-rt-pro"),
-            URLQueryItem(name: "sample_rate", value: String(sampleRate)),
-            URLQueryItem(name: "token", value: token),
-            URLQueryItem(name: "format_turns", value: "true"),
-        ]
-        if !vocabulary.keytermsPrompt.isEmpty,
-           let termsData = try? JSONEncoder().encode(vocabulary.keytermsPrompt),
-           let termsJSON = String(data: termsData, encoding: .utf8) {
-            items.append(URLQueryItem(name: "keyterms_prompt", value: termsJSON))
-        }
-        components.queryItems = items
-        guard let url = components.url else { throw StreamingClientError.invalidURL }
-
-        let wsTask = session.webSocketTask(with: url)
+        let wsTask = session.webSocketTask(with: wsURL)
         task = wsTask
 
         let (stream, cont) = AsyncStream<ServerMessage>.makeStream(bufferingPolicy: .unbounded)
@@ -125,7 +74,7 @@ final class StreamingClient {
                 if !isClosing {
                     let code = task.closeCode.rawValue
                     let reason = task.closeReason.flatMap { String(data: $0, encoding: .utf8) } ?? ""
-                    print("[StreamingClient] WS closed unexpectedly code=\(code) reason=\(reason) error=\(error)")
+                    print("[AssemblyAIStreamingClient] WS closed unexpectedly code=\(code) reason=\(reason) error=\(error)")
                     continuation?.finish()
                 }
                 break
@@ -166,16 +115,16 @@ final class StreamingClient {
             }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
             let stamp = String(format: "%.3f", Date().timeIntervalSince1970)
-            print("[StreamingClient] Turn t=\(stamp) order=\(p.turnOrder) eot=\(p.endOfTurn) len=\(p.transcript.count) text=\"\(p.transcript)\"")
+            print("[AssemblyAIStreamingClient] Turn t=\(stamp) order=\(p.turnOrder) eot=\(p.endOfTurn) len=\(p.transcript.count) text=\"\(p.transcript)\"")
             return .turn(TurnMessage(turnOrder: p.turnOrder, transcript: p.transcript, endOfTurn: p.endOfTurn))
         case "Termination":
             return .termination
         case "Error":
             struct Payload: Decodable { let errorCode: Int?; let error: String? }
             if let p = try? decoder.decode(Payload.self, from: data) {
-                print("[StreamingClient] AAI error code=\(p.errorCode ?? -1) message=\(p.error ?? "?")")
+                print("[AssemblyAIStreamingClient] AAI error code=\(p.errorCode ?? -1) message=\(p.error ?? "?")")
             } else if let raw = String(data: data, encoding: .utf8) {
-                print("[StreamingClient] AAI error (raw): \(raw)")
+                print("[AssemblyAIStreamingClient] AAI error (raw): \(raw)")
             }
             return nil
         default:

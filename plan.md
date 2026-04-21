@@ -28,8 +28,9 @@ iOS voice dictation demo app optimized for the thing users notice first: perceiv
 - **Accuracy path (live ASR):** each session starts with a session-scoped `keyterms_prompt` built from high-value terms for the demo. The streaming prompt stays conservative and close to AssemblyAI's default behavior so we do not trade away turn detection for cleverness.
 - **Correction path (async):** on each `end_of_turn=true`, iOS renders the raw final immediately and POSTs the finalized turn to `/correct` together with protected spellings for the session. The corrected text patches the already-visible row in place. If `/correct` fails or times out, the raw text stays.
 - **Server responsibilities:**
-  - `GET /token` mints AssemblyAI temp tokens via `/v3/token`.
+  - `POST /token` accepts `{keyterms_prompt}`, mints an AssemblyAI temp token via `/v3/token`, and returns a fully-formed WebSocket URL with all provider query params baked in. The iOS client just opens the URL — it doesn't know about provider-specific knobs like `speech_model`, `format_turns`, or `keyterms_prompt`.
   - `POST /correct` performs term-aware cleanup and later semantic rewrite.
+- **Provider boundary:** a thin `StreamingProvider` interface sits in front of the AssemblyAI-specific token + URL logic. Swapping ASR providers means adding one concrete implementation of the interface plus a matching `StreamingTranscriberClient` on iOS that parses the new provider's message frames into the shared `ServerMessage` enum.
 - **Why split the server from the audio stream:** routing audio through our server would add a full RTT to every partial and blow the latency budget. Audio goes direct; only the async correction layer touches our server.
 
 ## Simplicity strategy
@@ -160,8 +161,8 @@ Goal: partials render in under 150 ms from AssemblyAI, raw finals appear immedia
 | Phase | `/correct` does | Examples |
 |---|---|---|
 | 1 | Minimal single-turn cleanup via Claude Haiku | punctuation, truecasing, preserve protected terms, light filler removal |
-| 2 | Stronger per-turn cleanup + dictation semantics | spoken punctuation commands, tighter prompt tuning, dynamic vocabulary updates |
-| 3 | **Windowed semantic rewrite** via Claude Haiku | cross-turn self-correction ("let's meet at 2 no actually 3" → "Let's meet at 3.") |
+| 2 | Stronger per-turn cleanup + dictation semantics | spoken punctuation commands, limited streaming prompt templates, dynamic mid-stream prompt/keyterm updates |
+| 3 | **Windowed semantic rewrite** via Claude Haiku + rolling session memory | cross-turn self-correction ("let's meet at 2 no actually 3" → "Let's meet at 3.") with older frozen context compressed into a compact memory object |
 
 **Self-correction is exclusively a Phase 3 capability.** Phases 1 and 2 do not resolve self-corrections, whether within a single turn ("two no actually three" spoken without pause) or across turns. Earlier phases will punctuate such utterances but leave the meaning verbatim.
 
@@ -229,12 +230,42 @@ A commit point is:
 
 Frozen segments are no longer eligible for rewrite. This bounds cost and prevents older text from mutating forever.
 
+### Session memory for frozen context
+
+Long sessions cannot afford to ship the full conversation verbatim inside every `/correct` call. Once corrected segments become frozen, iOS may call a separate `POST /memory/update` endpoint with:
+- the previous session-memory blob,
+- the newly frozen corrected segments,
+- the session's `protected_terms`.
+
+The server returns an updated compact memory object plus the highest `turn_order` it covers. The memory is structured for correction work rather than user-facing display — for example:
+- `synopsis`
+- `stable_facts`
+- `entities`
+- `open_threads`
+
+Rules:
+- Memory is built only from corrected + frozen text, never from partials or still-mutable turns.
+- Memory updates are best-effort and off the hot path. If `/memory/update` fails, live correction still works with the bounded recent window alone.
+- `/correct` may include the latest `session_memory` alongside the mutable window.
+- Recent verbatim turns always outrank session memory if the two conflict.
+
 ### Model and prompt strategy
 
-- **Streaming ASR:** bias with `keyterms_prompt`. The optional streaming `prompt` param is unwired in Phase 1 and stays off until eval proves it helps (Phase 2+).
+- **Streaming ASR:** Phase 1 uses conservative `keyterms_prompt` only. Phase 2 wires a small set of English-first streaming prompt templates and `UpdateConfiguration` for mid-session `prompt` / `keyterms_prompt` changes. The live prompt stays narrow and instruction-like so we do not trade away turn detection for cleverness.
 - **Phase 1 `/correct`:** single-turn cleanup prompt that preserves meaning and protected spellings.
-- **Phase 3 `/correct`:** windowed rewrite prompt with explicit examples for self-corrections and structured output.
+- **Phase 3 `/correct`:** windowed rewrite prompt with explicit examples for self-corrections, structured output, and compact `session_memory` to carry older frozen context forward without replaying the whole transcript.
 - Prompt caching matters once the correction prompt gets larger, but it is secondary to getting the right data and contract shape first.
+
+### Future multilingual path
+
+Multilingual support is valuable but not load-bearing for the first strong version of VoxScribe. Keep the near-term product English-first on `u3-rt-pro`.
+
+Future work may add:
+- streaming `language_detection` metadata for correction hints,
+- language-aware prompt selection,
+- session-level fallback from `u3-rt-pro` to `whisper-rt` when the conversation is confidently outside U3's supported language set.
+
+That fallback is a product-mode change, not a twitchy per-turn heuristic. If we do it, it should happen deliberately after stable evidence and with a clear understanding that Whisper gives up some of U3's prompt/keyterm steering surface.
 
 ### Ordering and idempotency
 
@@ -255,6 +286,8 @@ Track at least:
 
 Maintain a small real-voice eval set in the repo and rerun it whenever we change prompt wording, keyterm selection, or correction thresholds.
 
+The Phase 1 implementation lives under `server/eval/`: `run_eval.py` runs each fixture clip through three modes (`baseline`, `keyterms`, `corrected`) and reports per-clip partial/final/correction latency plus seeded-term accuracy against the ≥80% gate. Audio fixtures stay under `server/eval/fixtures/` (gitignored); the committed `server/eval/manifest.json` is the recording spec. See `server/eval/README.md`.
+
 ## Design principles
 
 Cross-cutting rules that govern every phase. If a proposal violates one of these, the proposal changes.
@@ -262,7 +295,7 @@ Cross-cutting rules that govern every phase. If a proposal violates one of these
 1. **The hot path is sacred.** Audio and partial transcripts go iOS ↔ AssemblyAI directly. Nothing we build may add a hop to partials.
 2. **Proper nouns buy trust.** A few wrong names can sink the entire demo. Bias the live path toward the words users care about most.
 3. **The live prompt stays conservative.** Use `keyterms_prompt` for recognition and reserve heavier cleanup for `/correct`.
-4. **Prefer fewer moving parts over theoretical flexibility.** No DB, queue, cache, audio proxy, or provider abstraction until the current path is measurably insufficient.
+4. **Prefer fewer moving parts over theoretical flexibility.** No DB, queue, cache, or audio proxy until the current path is measurably insufficient. A thin provider boundary exists so AAI can be swapped later without touching the rest of the code, but VoxScribe stays single-provider until eval evidence calls for more.
 5. **Correction never blocks rendering.** Raw finals appear immediately. Corrected text patches the already-visible row asynchronously.
 6. **Append-and-patch, never rebuild.** The transcript tail may mutate, but the list is reconciled intentionally rather than blown away and redrawn.
 7. **Structural rewrites must be explicit.** If a correction merges or splits rows, the server must say what it replaces.

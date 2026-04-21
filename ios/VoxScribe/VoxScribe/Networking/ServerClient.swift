@@ -11,6 +11,14 @@ struct Segment: Codable, Sendable, Equatable, Identifiable {
     let text: String
 }
 
+struct SessionCredentials: Sendable, Equatable {
+    let provider: String
+    let token: String
+    let wsURL: URL
+    let sampleRate: Int
+    let expiresInSeconds: Int
+}
+
 enum ServerClientError: Error, Equatable {
     case httpStatus(Int)
     case invalidResponse
@@ -36,18 +44,48 @@ struct ServerClient: Sendable {
 
     // MARK: - /token
 
-    func fetchToken() async throws -> String {
-        let url = baseURL.appendingPathComponent("token")
-        var req = URLRequest(url: url)
+    func fetchSessionCredentials(vocabulary: SessionVocabulary) async throws -> SessionCredentials {
+        struct Body: Encodable {
+            let keytermsPrompt: [String]
+        }
+        struct Response: Decodable {
+            let provider: String
+            let token: String
+            let wsUrl: String
+            let sampleRate: Int
+            let expiresInSeconds: Int
+        }
+
+        var req = URLRequest(url: baseURL.appendingPathComponent("token"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "content-type")
         req.timeoutInterval = 10
+
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        req.httpBody = try encoder.encode(Body(keytermsPrompt: vocabulary.keytermsPrompt))
+
         let (data, response) = try await send(req)
         try ensureOK(response)
-        struct Body: Decodable { let token: String }
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let body: Response
         do {
-            return try JSONDecoder().decode(Body.self, from: data).token
+            body = try decoder.decode(Response.self, from: data)
         } catch {
             throw ServerClientError.decoding(String(describing: error))
         }
+        guard let url = URL(string: body.wsUrl) else {
+            throw ServerClientError.decoding("invalid ws_url: \(body.wsUrl)")
+        }
+        return SessionCredentials(
+            provider: body.provider,
+            token: body.token,
+            wsURL: url,
+            sampleRate: body.sampleRate,
+            expiresInSeconds: body.expiresInSeconds
+        )
     }
 
     // MARK: - /correct

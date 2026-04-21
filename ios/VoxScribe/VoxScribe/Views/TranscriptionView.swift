@@ -12,9 +12,10 @@ struct TranscriptionView: View {
             header
             Divider()
             transcriptScroll
-            if let message = displayedError {
-                errorBanner(message)
-            }
+            errorBanner(displayedError ?? "")
+                .opacity(displayedError == nil ? 0 : 1)
+                .frame(height: displayedError == nil ? 0 : nil)
+                .animation(.easeInOut(duration: 0.2), value: displayedError)
             controls
         }
         .onDisappear { timerTask?.cancel() }
@@ -135,7 +136,6 @@ struct TranscriptionView: View {
                 .fill(Color.orange.opacity(0.12))
         )
         .padding(.horizontal, 16)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     private var controls: some View {
@@ -201,7 +201,8 @@ struct TranscriptionView: View {
             Label("Scenario", systemImage: "slider.horizontal.3")
                 .font(.caption)
         }
-        .disabled(isRunning)
+        .opacity(isRunning ? 0.4 : 1)
+        .allowsHitTesting(!isRunning)
     }
     #endif
 
