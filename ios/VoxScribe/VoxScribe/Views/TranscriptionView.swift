@@ -1,11 +1,12 @@
 import SwiftUI
 
 struct TranscriptionView: View {
-    @State private var resolver = VocabularyResolver(catalog: KeytermsCatalog.loadBundled())
+    @State private var preferences = SessionPreferences()
     @State private var session: TranscriptionSession?
     @State private var elapsed: TimeInterval = 0
     @State private var timerTask: Task<Void, Never>?
     @State private var errorMessage: String?
+    @State private var showSettings = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -24,6 +25,9 @@ struct TranscriptionView: View {
                 timerTask?.cancel()
                 timerTask = nil
             }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView(preferences: preferences, isRecording: isRunning)
         }
     }
 
@@ -45,23 +49,23 @@ struct TranscriptionView: View {
     // MARK: - subviews
 
     private var header: some View {
-        VStack(spacing: 4) {
-            HStack {
-                Text(elapsedString)
-                    .font(.system(.title3, design: .monospaced))
+        HStack(spacing: 12) {
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.title3)
                     .foregroundStyle(.secondary)
-                Spacer()
-                statusIndicator
             }
-            HStack {
-                Text("Scenario: \(resolver.current.scenarioName)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                #if DEBUG
-                scenarioPicker
-                #endif
-            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Settings")
+
+            Text(elapsedString)
+                .font(.system(.title3, design: .monospaced))
+                .foregroundStyle(.secondary)
+
+            Spacer()
+            statusIndicator
         }
         .padding()
     }
@@ -182,30 +186,6 @@ struct TranscriptionView: View {
         }
     }
 
-    #if DEBUG
-    private var scenarioPicker: some View {
-        Menu {
-            ForEach(resolver.catalog.scenarios) { scenario in
-                Button {
-                    guard !isRunning else { return }
-                    resolver.setScenario(scenario.id)
-                } label: {
-                    if scenario.id == resolver.currentScenarioId {
-                        Label(scenario.name, systemImage: "checkmark")
-                    } else {
-                        Text(scenario.name)
-                    }
-                }
-            }
-        } label: {
-            Label("Scenario", systemImage: "slider.horizontal.3")
-                .font(.caption)
-        }
-        .opacity(isRunning ? 0.4 : 1)
-        .allowsHitTesting(!isRunning)
-    }
-    #endif
-
     // MARK: - state helpers
 
     private var isRunning: Bool {
@@ -237,7 +217,10 @@ struct TranscriptionView: View {
 
     private func startRecording() async {
         errorMessage = nil
-        let newSession = TranscriptionSession(vocabulary: resolver.current)
+        let newSession = TranscriptionSession(
+            vocabulary: { [preferences] in preferences.vocabulary },
+            profile: { [preferences] in preferences.mode }
+        )
         session = newSession
         await newSession.start()
         if case .failed(let sessionError) = newSession.phase {

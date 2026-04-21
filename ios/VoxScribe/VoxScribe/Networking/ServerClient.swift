@@ -93,12 +93,14 @@ struct ServerClient: Sendable {
     func correct(
         sessionId: String,
         vocabulary: SessionVocabulary,
+        profile: String,
         turns: [TurnInput]
     ) async throws -> [Segment] {
         struct Body: Encodable {
             let sessionId: String
             let vocabularyRevision: Int
             let protectedTerms: [String]
+            let profile: String
             let turns: [TurnInput]
         }
 
@@ -106,6 +108,7 @@ struct ServerClient: Sendable {
             sessionId: sessionId,
             vocabularyRevision: vocabulary.revision,
             protectedTerms: vocabulary.protectedTerms,
+            profile: profile,
             turns: turns
         )
 
