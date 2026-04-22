@@ -9,6 +9,7 @@ struct TurnMessage: Sendable, Equatable {
     let turnOrder: Int
     let transcript: String
     let endOfTurn: Bool
+    let languageCode: String?
 }
 
 enum ServerMessage: Sendable, Equatable {

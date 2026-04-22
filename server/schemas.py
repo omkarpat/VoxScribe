@@ -3,10 +3,12 @@ from typing import Literal
 from pydantic import BaseModel
 
 CorrectionProfile = Literal["default", "dictation", "structured_entry"]
+Transcriber = Literal["standard", "multilingual"]
 
 
 class VocabularyInput(BaseModel):
     keyterms_prompt: list[str] = []
+    transcriber: Transcriber = "standard"
 
 
 class TokenResponse(BaseModel):
@@ -27,6 +29,8 @@ class CorrectRequest(BaseModel):
     vocabulary_revision: int
     protected_terms: list[str]
     profile: CorrectionProfile = "default"
+    transcriber: Transcriber = "standard"
+    detected_language: str | None = None
     turns: list[TurnInput]
 
 

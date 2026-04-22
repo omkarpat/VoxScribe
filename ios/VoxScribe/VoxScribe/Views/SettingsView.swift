@@ -15,8 +15,11 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                transcriberSection
                 modeSection
-                keytermsSection
+                if preferences.transcriber.supportsKeyterms {
+                    keytermsSection
+                }
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -37,6 +40,33 @@ struct SettingsView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Transcriber section
+
+    private var transcriberSection: some View {
+        Section {
+            Picker("Transcriber", selection: $preferences.transcriber) {
+                ForEach(Transcriber.allCases) { t in
+                    Text(t.displayName).tag(t)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(isRecording)
+        } header: {
+            Text("Transcriber")
+        } footer: {
+            Text(transcriberFooter)
+        }
+    }
+
+    private var transcriberFooter: String {
+        switch preferences.transcriber {
+        case .standard:
+            return "English only. Supports a custom keyterms dictionary."
+        case .multilingual:
+            return "Whisper-RT across 99 languages with auto language detection. Keyterms aren't supported in this mode."
         }
     }
 

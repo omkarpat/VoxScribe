@@ -70,6 +70,7 @@ final class TranscriptionSession {
     private let localRecognizer: LocalSpeechRecognizer
 
     private var sessionId: String?
+    private var lastDetectedLanguage: String?
     private var pumpTask: Task<Void, Never>?
     private var receiveTask: Task<Void, Never>?
     private var localPumpTask: Task<Void, Never>?
@@ -97,6 +98,7 @@ final class TranscriptionSession {
         phase = .starting
         segments = []
         partial = ""
+        lastDetectedLanguage = nil
 
         // Snapshot vocabulary at session start for the ASR token. AAI can't
         // swap keyterms mid-stream. Mid-session edits still take effect on
@@ -219,6 +221,9 @@ final class TranscriptionSession {
         case .begin(let begin):
             sessionId = begin.id
         case .turn(let turn):
+            if let lang = turn.languageCode, !lang.isEmpty {
+                lastDetectedLanguage = lang
+            }
             if turn.endOfTurn {
                 commitFinal(turn)
                 if localEnabled { localRecognizer.reset() }
@@ -247,6 +252,7 @@ final class TranscriptionSession {
         guard let sessionId else { return }
         let vocab = vocabularyProvider()
         let profile = profileProvider().serverProfile
+        let detectedLanguage = lastDetectedLanguage
         let input = TurnInput(turnOrder: turn.turnOrder, transcript: trimmed)
         let client = serverClient
 
@@ -256,6 +262,7 @@ final class TranscriptionSession {
                     sessionId: sessionId,
                     vocabulary: vocab,
                     profile: profile,
+                    detectedLanguage: detectedLanguage,
                     turns: [input]
                 )
                 self?.applyCorrection(corrected)

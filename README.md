@@ -73,8 +73,12 @@ curl http://127.0.0.1:8000/health
 # → {"status":"ok","provider":"assemblyai"}
 
 curl -X POST http://127.0.0.1:8000/token \
-  -H 'content-type: application/json' -d '{"keyterms_prompt":[]}'
-# → {"provider":"assemblyai","token":"…","ws_url":"wss://…","sample_rate":16000,"expires_in_seconds":600}
+  -H 'content-type: application/json' -d '{"keyterms_prompt":[],"transcriber":"standard"}'
+# → {"provider":"assemblyai","token":"…","ws_url":"wss://…?speech_model=u3-rt-pro&…","sample_rate":16000,"expires_in_seconds":600}
+
+curl -X POST http://127.0.0.1:8000/token \
+  -H 'content-type: application/json' -d '{"keyterms_prompt":[],"transcriber":"multilingual"}'
+# → {"provider":"assemblyai","token":"…","ws_url":"wss://…?speech_model=whisper-rt&language_detection=true&…", …}
 ```
 
 ### iOS
@@ -85,8 +89,9 @@ curl -X POST http://127.0.0.1:8000/token \
 
 Tap the gear icon in the top-left to open **Settings**, which holds:
 
+- A segmented **transcriber** picker (Standard / Multilingual). Standard runs AssemblyAI `u3-rt-pro` (English only) with a custom keyterms dictionary. Multilingual runs AssemblyAI `whisper-rt` across 99 languages with automatic language detection — the detected `language_code` is forwarded to `/correct` so the correction prompt can adapt. Keyterms aren't supported in Multilingual mode and the Keyterms section hides accordingly. The transcriber must be chosen before recording (it's baked into the streaming token).
 - A segmented **mode** picker (Standard / Dictation / Structured) that selects the `/correct` profile — `default`, `dictation`, or `structured_entry` server-side. The mode can be changed anytime.
-- An editable **keyterms** list: add, rename (tap a row), and swipe-to-delete. Terms bias the transcriber and are sent as `protected_terms` to `/correct`. Keyterm edits are disabled while recording — stop the session first; changes take effect on the next session. The list is persisted in `UserDefaults` and seeded with a default tech vocabulary on first launch.
+- An editable **keyterms** list (Standard transcriber only): add, rename (tap a row), and swipe-to-delete. Terms bias the transcriber and are sent as `protected_terms` to `/correct`. Keyterm edits are disabled while recording — stop the session first; changes take effect on the next session. The list is persisted in `UserDefaults` and seeded with a Hinglish vocabulary (yaar, chai, Mumbai, …) on first launch.
 
 ## Provider abstraction
 

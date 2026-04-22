@@ -51,14 +51,20 @@ class AssemblyAIProvider:
         token = data["token"]
         expires = data.get("expires_in_seconds", self._expires_in_seconds)
 
-        params = {
-            "speech_model": "u3-rt-pro",
+        params: dict[str, str | int] = {
             "sample_rate": self._sample_rate,
             "token": token,
             "format_turns": "true",
         }
-        if vocabulary.keyterms_prompt:
-            params["keyterms_prompt"] = json.dumps(vocabulary.keyterms_prompt)
+        if vocabulary.transcriber == "multilingual":
+            # Whisper-RT: 99-language automatic detection. Does not accept
+            # `language` or `keyterms_prompt`.
+            params["speech_model"] = "whisper-rt"
+            params["language_detection"] = "true"
+        else:
+            params["speech_model"] = "u3-rt-pro"
+            if vocabulary.keyterms_prompt:
+                params["keyterms_prompt"] = json.dumps(vocabulary.keyterms_prompt)
 
         return TokenResponse(
             provider=self.name,

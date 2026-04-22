@@ -4,7 +4,27 @@ import Observation
 struct SessionVocabulary: Sendable, Equatable {
     let keytermsPrompt: [String]
     let protectedTerms: [String]
+    let transcriber: Transcriber
     let revision: Int
+}
+
+enum Transcriber: String, CaseIterable, Sendable, Identifiable {
+    case standard
+    case multilingual
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .standard: return "Standard"
+        case .multilingual: return "Multilingual"
+        }
+    }
+
+    /// Matches `Transcriber` in `schemas.py`.
+    var serverValue: String { rawValue }
+
+    var supportsKeyterms: Bool { self == .standard }
 }
 
 enum CorrectionMode: String, CaseIterable, Sendable, Identifiable {
@@ -43,30 +63,46 @@ final class SessionPreferences {
             defaults.set(mode.rawValue, forKey: Self.modeKey)
         }
     }
+    var transcriber: Transcriber {
+        didSet {
+            guard oldValue != transcriber else { return }
+            defaults.set(transcriber.rawValue, forKey: Self.transcriberKey)
+            revision += 1
+        }
+    }
 
     private let defaults: UserDefaults
     private static let termsKey = "voxscribe.keyterms.v1"
     private static let modeKey = "voxscribe.correctionMode.v1"
+    private static let transcriberKey = "voxscribe.transcriber.v1"
 
     static let defaultTerms: [String] = [
-        "Anthropic",
-        "Claude",
-        "Haiku",
-        "Sonnet",
-        "Opus",
-        "AssemblyAI",
-        "WebSocket",
-        "FastAPI",
-        "uvicorn",
-        "SwiftUI",
-        "Xcode",
-        "AVAudioEngine",
-        "PCM",
-        "ASR",
-        "VAD",
-        "LLM",
-        "prompt caching",
-        "VoxScribe",
+        "yaar",
+        "bhai",
+        "bhaiya",
+        "didi",
+        "accha",
+        "arre",
+        "matlab",
+        "bas",
+        "haan",
+        "na",
+        "kya",
+        "chalo",
+        "theek hai",
+        "chai",
+        "pani",
+        "masala",
+        "lassi",
+        "samosa",
+        "paratha",
+        "biryani",
+        "Mumbai",
+        "Delhi",
+        "Bengaluru",
+        "desi",
+        "jugaad",
+        "timepass",
     ]
 
     init(defaults: UserDefaults = .standard) {
@@ -83,13 +119,21 @@ final class SessionPreferences {
         } else {
             self.mode = .standard
         }
+        if let raw = defaults.string(forKey: Self.transcriberKey),
+           let stored = Transcriber(rawValue: raw) {
+            self.transcriber = stored
+        } else {
+            self.transcriber = .standard
+        }
         self.revision = 1
     }
 
     var vocabulary: SessionVocabulary {
-        SessionVocabulary(
-            keytermsPrompt: terms,
-            protectedTerms: terms,
+        let activeTerms = transcriber.supportsKeyterms ? terms : []
+        return SessionVocabulary(
+            keytermsPrompt: activeTerms,
+            protectedTerms: activeTerms,
+            transcriber: transcriber,
             revision: revision
         )
     }
