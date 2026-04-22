@@ -219,7 +219,8 @@ struct TranscriptionView: View {
         errorMessage = nil
         let newSession = TranscriptionSession(
             vocabulary: { [preferences] in preferences.vocabulary },
-            profile: { [preferences] in preferences.mode }
+            profile: { [preferences] in preferences.mode },
+            localPartialsEnabled: { [preferences] in preferences.localPartialsEnabled }
         )
         session = newSession
         await newSession.start()

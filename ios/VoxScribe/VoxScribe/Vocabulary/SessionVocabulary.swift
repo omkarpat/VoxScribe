@@ -70,11 +70,18 @@ final class SessionPreferences {
             revision += 1
         }
     }
+    var localPartialsEnabled: Bool {
+        didSet {
+            guard oldValue != localPartialsEnabled else { return }
+            defaults.set(localPartialsEnabled, forKey: Self.localPartialsKey)
+        }
+    }
 
     private let defaults: UserDefaults
     private static let termsKey = "voxscribe.keyterms.v1"
     private static let modeKey = "voxscribe.correctionMode.v1"
     private static let transcriberKey = "voxscribe.transcriber.v1"
+    private static let localPartialsKey = "voxscribe.localPartials.v1"
 
     static let defaultTerms: [String] = [
         "yaar",
@@ -124,6 +131,11 @@ final class SessionPreferences {
             self.transcriber = stored
         } else {
             self.transcriber = .standard
+        }
+        if defaults.object(forKey: Self.localPartialsKey) != nil {
+            self.localPartialsEnabled = defaults.bool(forKey: Self.localPartialsKey)
+        } else {
+            self.localPartialsEnabled = true
         }
         self.revision = 1
     }
