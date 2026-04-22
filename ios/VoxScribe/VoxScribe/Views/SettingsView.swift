@@ -17,6 +17,7 @@ struct SettingsView: View {
             Form {
                 transcriberSection
                 modeSection
+                livePartialsSection
                 if preferences.transcriber.supportsKeyterms {
                     keytermsSection
                 }
@@ -95,6 +96,19 @@ struct SettingsView: View {
             return "Standard plus spoken punctuation and line/paragraph commands."
         case .structured:
             return "Standard plus normalization of emails, phone numbers, URLs, IDs, and versions."
+        }
+    }
+
+    // MARK: - Live partials section
+
+    private var livePartialsSection: some View {
+        Section {
+            Toggle("On-device partials", isOn: $preferences.localPartialsEnabled)
+                .disabled(isRecording)
+        } header: {
+            Text("Live transcription")
+        } footer: {
+            Text("Uses Apple's on-device speech recognizer for snappier partials as you speak. Finals still come from the server. Changes apply on the next session.")
         }
     }
 
