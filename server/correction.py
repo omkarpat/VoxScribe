@@ -31,7 +31,10 @@ Your job:
 - Truecase sentence starts and clear proper nouns.
 - Remove obvious filler words (um, uh, mid-thought "like", "you know") only when they are clearly non-meaningful.
 - Clean harmless immediate repetitions or false starts only when meaning does not change.
+- If the entire turn is pure disfluency or unintelligible noise with no substantive content at all (for example "Hm, um.", "Uh...", "aaaaa bbbbb"), return an empty string for cleaned_text. Empty output is a valid, expected result for content-free turns.
+- Short answer/confirmation words are substantive content, not disfluency. "yes", "yeah", "yep", "no", "nope", "ok", "okay", "sure", "nah", "right", and similar standalone replies must be preserved even when the rest of the turn is filler. For example, "Uh, yeah." → "Yeah." (drop "uh", keep "yeah"), not empty.
 - Preserve every PROTECTED term exactly — same spelling, same casing — wherever it appears.
+- Prefer under-correction to unsupported specificity. RAW is the evidence; likely guesses are not.
 
 Hard rules:
 - Do NOT summarize or paraphrase for style.
@@ -39,6 +42,10 @@ Hard rules:
 - Do NOT make the text more formal, more concise, or more note-like than the raw speech supports.
 - Do NOT substitute synonyms unless clearly required to fix an ASR error.
 - Do NOT add content, names, numbers, dates, or entities not already supported by the raw text.
+- You MAY repair obvious tokenization or spacing errors into the same canonical surface form when RAW already clearly supports that exact token and no extra semantic detail is introduced (for example "read me" → "README", "api" → "API").
+- Do NOT "upgrade" vague raw wording into a more specific brand, model family, version, filename, identifier, env var, email, URL, or code symbol unless that extra specificity is explicitly supported by RAW or required by PROTECTED.
+- Treat uncommon tokens, acronyms, package names, model names, file names, command flags, and mixed alphanumeric strings as opaque by default. If unsure, keep the raw token rather than guessing a canonical spelling.
+- A plausible canonical form is still a guess. Do not expand shorthand like "haiku", "api key", or partial structured fields into more specific forms unless the raw text itself already provides that detail.
 - Do NOT resolve self-corrections. Phrases like "no actually X", "no wait X", "I mean X", "scratch that X", and "no make that X" are self-correction markers. Keep both the original value and the corrected value in the output verbatim. Resolving self-corrections is Phase 3 behavior.
 - Do NOT convert spoken number words to digits when they appear inside a self-correction.
 - Do NOT change meaning, even slightly.
@@ -59,7 +66,11 @@ Your job:
 - Truecase sentence starts and clear proper nouns.
 - Remove obvious filler words only when they are clearly non-meaningful.
 - Clean harmless immediate repetitions or false starts only when meaning does not change.
+- If the entire turn is pure disfluency or unintelligible noise with no substantive content at all (for example "Hm, um.", "Uh...", "aaaaa bbbbb"), return an empty string for cleaned_text. Empty output is a valid, expected result for content-free turns.
+- Short answer/confirmation words are substantive content, not disfluency. "yes", "yeah", "yep", "no", "nope", "ok", "okay", "sure", "nah", "right", and similar standalone replies must be preserved even when the rest of the turn is filler. For example, "Uh, yeah." → "Yeah." (drop "uh", keep "yeah"), not empty.
+- Strip known Whisper-RT boilerplate hallucinations when they are the entire turn. The upstream model is trained on YouTube and subtitle corpora and emits stock closers or subtitle attributions during silence or non-speech audio. Representative patterns (and close variants in any language) include "Thanks for watching", "Please subscribe", "Subtitles by the Amara.org community", "Transcribed by X", "Satsang with Mooji". If the whole turn is such a phrase, return an empty string. If the same words appear inside a longer substantive utterance, keep them — they may be genuine speech.
 - If RAW contains any non-Latin characters, transliterate them into the conventional Latin romanization for DETECTED_LANGUAGE (for example Devanagari → Hinglish / ITRANS-style). Transliteration changes only the script; every word stays in its original language with the same meaning.
+- Prefer under-correction to unsupported specificity. RAW is the evidence; likely guesses are not.
 
 Hard rules:
 - Do NOT translate. Keep each word in the language it was spoken. Transliteration (script change only, same words, same meaning) is not translation.
@@ -67,6 +78,10 @@ Hard rules:
 - Do NOT make the text more formal, more concise, or more note-like than the raw speech supports.
 - Do NOT substitute synonyms unless clearly required to fix an ASR error.
 - Do NOT add content, names, numbers, dates, or entities not already supported by the raw text.
+- You MAY repair obvious tokenization or spacing errors into the same canonical surface form when RAW already clearly supports that exact token and no extra semantic detail is introduced (for example "read me" → "README", "api" → "API").
+- Do NOT "upgrade" vague raw wording into a more specific brand, model family, version, filename, identifier, env var, email, URL, or code symbol unless that extra specificity is explicitly supported by RAW.
+- Treat uncommon tokens, acronyms, package names, model names, file names, command flags, and mixed alphanumeric strings as opaque by default. If unsure, keep the raw token rather than guessing a canonical spelling after transliteration or cleanup.
+- A plausible canonical form is still a guess. Do not expand shorthand like "haiku", "api key", or partial structured fields into more specific forms unless the raw text itself already provides that detail.
 - Do NOT resolve self-corrections. Phrases like "no actually X", "no wait X", "I mean X", "scratch that X", and "no make that X" are self-correction markers. Keep both the original value and the corrected value in the output verbatim.
 - Do NOT convert spoken number words to digits when they appear inside a self-correction.
 - Do NOT change meaning, even slightly.
@@ -93,7 +108,23 @@ OUTPUT (cleaned_text): Arre yaar, chalo chai pi lete hain.
 
 PROTECTED: ["FastAPI"]
 RAW: I wa, I want to finish the Fastapi endpoint today.
-OUTPUT (cleaned_text): I want to finish the FastAPI endpoint today."""
+OUTPUT (cleaned_text): I want to finish the FastAPI endpoint today.
+
+PROTECTED: []
+RAW: lets use haiku for the quick pass
+OUTPUT (cleaned_text): Let's use haiku for the quick pass.
+
+PROTECTED: []
+RAW: open the read me for the api
+OUTPUT (cleaned_text): Open the README for the API.
+
+PROTECTED: []
+RAW: Hm, um.
+OUTPUT (cleaned_text):
+
+PROTECTED: []
+RAW: Uh, yeah.
+OUTPUT (cleaned_text): Yeah."""
 
 _MULTILINGUAL_DEFAULT_EXAMPLES = """Profile: default
 Apply light transcript cleanup and romanize any non-Latin text. The ASR has already cased and punctuated the input for Latin-script languages; keep that formatting. For non-Latin scripts, romanize and apply casing/punctuation during transliteration.
@@ -110,7 +141,19 @@ OUTPUT (cleaned_text): Yaar, chai pi lete hain.
 
 DETECTED_LANGUAGE: hi
 RAW: मुझे कल मुंबई जाना है
-OUTPUT (cleaned_text): Mujhe kal Mumbai jaana hai."""
+OUTPUT (cleaned_text): Mujhe kal Mumbai jaana hai.
+
+DETECTED_LANGUAGE: en
+RAW: lets use haiku for the quick pass
+OUTPUT (cleaned_text): Let's use haiku for the quick pass.
+
+DETECTED_LANGUAGE: en
+RAW: Hm, um.
+OUTPUT (cleaned_text):
+
+DETECTED_LANGUAGE: en
+RAW: Uh, yeah.
+OUTPUT (cleaned_text): Yeah."""
 
 _DICTATION_PROFILE = """Profile: dictation
 Interpret spoken punctuation and formatting commands as punctuation only when they are clearly being used as commands rather than literal words.
@@ -140,7 +183,7 @@ RAW: During that period I was traveling.
 OUTPUT (cleaned_text): During that period I was traveling."""
 
 _STRUCTURED_ENTRY_PROFILE = """Profile: structured_entry
-Normalize structured data only when the raw text strongly supports a specific normalization.
+Normalize structured data only when the raw text strongly supports a specific normalization and every required component is present in the turn.
 
 Allowed when strongly supported:
 - email addresses
@@ -150,6 +193,7 @@ Allowed when strongly supported:
 - numeric IDs
 
 Do NOT invent digits, domain names, TLDs, or version components.
+Do NOT infer a more canonical identifier from product knowledge alone.
 Do NOT normalize if the input is partial or ambiguous.
 When unsure, preserve the raw wording.
 
@@ -159,7 +203,10 @@ RAW: my email is john dot doe at gmail dot com
 OUTPUT (cleaned_text): My email is john.doe@gmail.com.
 
 RAW: maybe call me at five five
-OUTPUT (cleaned_text): Maybe call me at five five."""
+OUTPUT (cleaned_text): Maybe call me at five five.
+
+RAW: my email is jane dot doe at gmail
+OUTPUT (cleaned_text): My email is jane dot doe at gmail."""
 
 _PROMPTS: dict[tuple[Transcriber, CorrectionProfile], str] = {
     ("standard", "default"): f"{_STANDARD_SHARED}\n\n{_STANDARD_DEFAULT_EXAMPLES}",
@@ -220,29 +267,19 @@ def _format_user_message(
     return f"PROTECTED: {pt}\nRAW: {raw}"
 
 
-def _is_low_entropy(raw: str) -> bool:
-    """Detect garbage input where most 'words' are single-character runs.
-
-    Examples that should return True: "aaaaa bbbbb ccccc", "xxxx yyyy zzzz".
-    These are low-signal inputs that invite the model to hallucinate structure.
-    """
-    words = raw.split()
-    significant = [w for w in words if len(w) >= 3 and w.isalpha()]
-    if len(significant) < 2:
-        return False
-    suspect = sum(1 for w in significant if len(set(w.lower())) == 1)
-    return suspect / len(significant) >= 0.5
-
-
 def _passes_safety(
     raw: str,
     cleaned: str,
     protected_terms: list[str],
     transcriber: Transcriber,
 ) -> tuple[bool, str]:
-    """Return (ok, reason_code). reason_code is non-empty on failure."""
+    """Return (ok, reason_code). reason_code is non-empty on failure.
+
+    Empty cleaned output is a valid result (pure-disfluency turn), so all
+    length and protected-term checks short-circuit and pass.
+    """
     if not cleaned:
-        return False, "empty_output"
+        return True, ""
 
     # Transliteration (e.g. Devanagari → Latin) can 2–3× the character count,
     # so the length-drift guard is wider in multilingual mode.
@@ -276,10 +313,6 @@ async def correct_single_turn(
 ) -> str:
     """Return a cleaned transcript. Falls back to raw on any safety or API failure."""
     if not raw.strip():
-        return raw
-
-    if _is_low_entropy(raw):
-        logger.info("low-entropy input detected; skipping Haiku and returning raw profile=%s", profile)
         return raw
 
     system_prompt = _PROMPTS[(transcriber, profile)]

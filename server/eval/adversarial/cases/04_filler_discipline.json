@@ -46,5 +46,35 @@
       {"type": "length_ratio_between", "min": 0.5, "max": 1.2}
     ],
     "notes": "'Literally' is ambiguous — not obviously filler. Model should leave it or remove conservatively."
+  },
+  {
+    "id": "fd-005",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "Hm, um.",
+    "assertions": [
+      {"type": "length_ratio_between", "min": 0.0, "max": 0.5}
+    ],
+    "notes": "Pure disfluency turn — expected to return empty (or near-empty). Contentless turns should not produce a visible transcript row."
+  },
+  {
+    "id": "fd-006",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "Uh, yeah.",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "yeah", "ignore_case": true}
+    ],
+    "notes": "Short turn with a real answer word. 'yeah' is substantive and must be preserved — not stripped as disfluency. 'uh' may be dropped."
+  },
+  {
+    "id": "fd-007",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "Um, no.",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "no", "ignore_case": true}
+    ],
+    "notes": "Short turn with a real answer word. 'no' is substantive and must be preserved — not stripped as disfluency."
   }
 ]
