@@ -6,7 +6,7 @@ struct SettingsView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var newTerm: String = ""
-    @State private var editingIndex: Int?
+    @State private var editingTerm: String?
     @State private var editingDraft: String = ""
     @State private var errorMessage: String?
     @FocusState private var addFieldFocused: Bool
@@ -17,6 +17,7 @@ struct SettingsView: View {
             Form {
                 transcriberSection
                 modeSection
+                livePartialsSection
                 if preferences.transcriber.supportsKeyterms {
                     keytermsSection
                 }
@@ -98,6 +99,19 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Live partials section
+
+    private var livePartialsSection: some View {
+        Section {
+            Toggle("On-device partials", isOn: $preferences.localPartialsEnabled)
+                .disabled(isRecording)
+        } header: {
+            Text("Live transcription")
+        } footer: {
+            Text("Uses Apple's on-device speech recognizer for snappier partials as you speak. Finals still come from the server. Changes apply on the next session.")
+        }
+    }
+
     // MARK: - Keyterms section
 
     private var keytermsSection: some View {
@@ -147,8 +161,8 @@ struct SettingsView: View {
             Text("No terms yet.")
                 .foregroundStyle(.secondary)
         } else {
-            ForEach(preferences.terms.indices, id: \.self) { index in
-                row(for: preferences.terms[index], at: index)
+            ForEach(Array(preferences.terms.enumerated()), id: \.element) { index, term in
+                row(for: term, at: index)
             }
             .onDelete { offsets in
                 guard !isRecording else { return }
@@ -160,14 +174,14 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func row(for term: String, at index: Int) -> some View {
-        if editingIndex == index {
+        if editingTerm == term {
             HStack {
                 TextField("Term", text: $editingDraft)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .focused($renameFieldFocused)
-                    .onSubmit { commitRename(at: index) }
-                Button("Save") { commitRename(at: index) }
+                    .onSubmit { commitRename() }
+                Button("Save") { commitRename() }
                     .buttonStyle(.borderless)
                 Button("Cancel") { cancelRename() }
                     .buttonStyle(.borderless)
@@ -179,7 +193,7 @@ struct SettingsView: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     guard !isRecording else { return }
-                    beginRename(at: index)
+                    beginRename(term)
                 }
         }
     }
@@ -205,24 +219,28 @@ struct SettingsView: View {
         for index in offsets.sorted(by: >) {
             preferences.remove(at: index)
         }
-        if let editingIndex, !preferences.terms.indices.contains(editingIndex) {
+        if let editingTerm, !preferences.terms.contains(editingTerm) {
             cancelRename()
         }
     }
 
-    private func beginRename(at index: Int) {
-        editingIndex = index
-        editingDraft = preferences.terms[index]
+    private func beginRename(_ term: String) {
+        editingTerm = term
+        editingDraft = term
         renameFieldFocused = true
     }
 
-    private func commitRename(at index: Int) {
+    private func commitRename() {
+        guard let editingTerm, let index = preferences.terms.firstIndex(of: editingTerm) else {
+            cancelRename()
+            return
+        }
         _ = preferences.update(at: index, to: editingDraft)
         cancelRename()
     }
 
     private func cancelRename() {
-        editingIndex = nil
+        editingTerm = nil
         editingDraft = ""
     }
 }

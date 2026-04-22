@@ -64,6 +64,7 @@ final class TranscriptionSession {
 
     private let vocabularyProvider: @MainActor () -> SessionVocabulary
     private let profileProvider: @MainActor () -> CorrectionMode
+    private let localPartialsEnabledProvider: @MainActor () -> Bool
     private let serverClient: ServerClient
     private let audioCapture: AudioCapture
     private let streamingClient: any StreamingTranscriberClient
@@ -80,6 +81,7 @@ final class TranscriptionSession {
     init(
         vocabulary: @escaping @MainActor () -> SessionVocabulary,
         profile: @escaping @MainActor () -> CorrectionMode,
+        localPartialsEnabled: @escaping @MainActor () -> Bool,
         serverClient: ServerClient? = nil,
         audioCapture: AudioCapture? = nil,
         streamingClient: (any StreamingTranscriberClient)? = nil,
@@ -87,6 +89,7 @@ final class TranscriptionSession {
     ) {
         self.vocabularyProvider = vocabulary
         self.profileProvider = profile
+        self.localPartialsEnabledProvider = localPartialsEnabled
         self.serverClient = serverClient ?? ServerClient()
         self.audioCapture = audioCapture ?? AudioCapture()
         self.streamingClient = streamingClient ?? AssemblyAIStreamingClient()
@@ -112,10 +115,10 @@ final class TranscriptionSession {
             let audioStreams = try await audioStreamsFuture
             let messages = try streamingClient.open(wsURL: credentials.wsURL, sampleRate: credentials.sampleRate)
 
-            // Local SFSR is behind a feature flag + best-effort. If the flag
-            // is off, or auth fails, or the recognizer is unavailable, we
-            // fall back to AAI-only partials.
-            if AppConfig.localPartialStreamingEnabled {
+            // Local SFSR is best-effort and user-gated via Settings. If the
+            // toggle is off, or auth fails, or the recognizer is unavailable,
+            // we fall back to AAI-only partials.
+            if localPartialsEnabledProvider() {
                 do {
                     try await localRecognizer.start()
                     localEnabled = true
