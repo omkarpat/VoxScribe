@@ -155,5 +155,43 @@
       {"type": "length_ratio_between", "min": 0.7, "max": 1.6}
     ],
     "notes": "Multilingual transcriber with detected_language=null (unknown). Latin-script input missing sentence-initial capital and end-of-sentence punctuation; model must fix those."
+  },
+  {
+    "id": "ml-011-whisper-hallucination-thanks",
+    "profile": "default",
+    "transcriber": "multilingual",
+    "detected_language": "en",
+    "protected_terms": [],
+    "input_transcript": "Thanks for watching!",
+    "assertions": [
+      {"type": "length_ratio_between", "min": 0.0, "max": 0.3}
+    ],
+    "notes": "Whisper-RT boilerplate closer emitted during silence. As a standalone turn it's a hallucination and should be stripped to empty."
+  },
+  {
+    "id": "ml-012-whisper-hallucination-amara",
+    "profile": "default",
+    "transcriber": "multilingual",
+    "detected_language": "en",
+    "protected_terms": [],
+    "input_transcript": "Subtitles by the Amara.org community",
+    "assertions": [
+      {"type": "length_ratio_between", "min": 0.0, "max": 0.3}
+    ],
+    "notes": "Whisper-RT subtitle-attribution hallucination. Standalone turn → empty."
+  },
+  {
+    "id": "ml-013-whisper-hallucination-inside-speech",
+    "profile": "default",
+    "transcriber": "multilingual",
+    "detected_language": "en",
+    "protected_terms": [],
+    "input_transcript": "Alright, thanks for watching the demo, let me know what you think.",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "thanks for watching", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "demo", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.7, "max": 1.3}
+    ],
+    "notes": "Guardrail: 'thanks for watching' inside substantive speech is genuine and must be preserved. Only strip when the hallucinated phrase is the entire turn."
   }
 ]

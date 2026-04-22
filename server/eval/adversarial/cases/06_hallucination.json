@@ -40,9 +40,10 @@
     "protected_terms": [],
     "input_transcript": "aaaaa bbbbb ccccc",
     "assertions": [
-      {"type": "fallback_expected"}
+      {"type": "no_added_content", "forbidden_additions": ["and", "the", "is", "are", "hello", "test", "please", "this"]},
+      {"type": "length_ratio_between", "min": 0.0, "max": 1.2}
     ],
-    "notes": "Garbled / nonsense input. Length-ratio or safety guard should trigger fallback."
+    "notes": "Garbled / nonsense input. Acceptable to return empty (pure noise) or preserve the raw tokens; must not invent coherent prose."
   },
   {
     "id": "hal-005",

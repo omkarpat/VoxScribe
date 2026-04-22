@@ -21,6 +21,7 @@ Non-goals:
 Core rules:
 - Prefer minimal edits over broad rewrites.
 - If uncertain, preserve the raw wording.
+- If uncertain, prefer under-correction to unsupported specificity.
 - Recent verbatim turns outrank inferred context.
 - Phase 2 is single-turn only.
 - Phase 3 owns semantic rewrite across turns.
@@ -37,6 +38,7 @@ Allowed behaviors:
 - Preserve `protected_terms` exactly.
 - Support dictation semantics in a dedicated profile.
 - Support structured-entry normalization in a dedicated profile.
+- Return an empty `cleaned_text` when the entire turn is pure disfluency, unintelligible noise, or a known upstream-ASR boilerplate hallucination with no substantive speech. The client drops segments with empty corrected text instead of rendering a blank row.
 
 Disallowed behaviors:
 - Resolve self-corrections into a final meaning.
@@ -44,6 +46,7 @@ Disallowed behaviors:
 - Rewrite across multiple turns.
 - Paraphrase for style.
 - Translate code-switched or non-English text.
+- Strip short standalone answer words such as "yes", "yeah", "no", "ok". These are substantive content, not disfluency, even when they are the entire turn.
 
 Profiles:
 - `default`: punctuation, casing, filler cleanup, protected-term preservation.
@@ -148,6 +151,7 @@ Allowed edits:
 - Truecasing of clear proper nouns and protected terms.
 - Obvious filler removal.
 - Harmless repetition cleanup.
+- Empty output when the turn is 100% disfluency, noise, or a standalone upstream-ASR hallucination (for example Whisper-RT boilerplate like "Thanks for watching", "Please subscribe", "Subtitles by the Amara.org community"). Only when the phrase is the entire turn — if it appears inside real speech, preserve it.
 - Dictation command interpretation in `dictation`.
 - Structured normalization in `structured_entry`.
 - Self-correction resolution only in `semantic_rewrite`.
@@ -159,9 +163,12 @@ Forbidden edits:
 - Synonym substitution unless clearly required to fix an ASR error.
 - Inventing missing content.
 - Changing uncertain names, numbers, dates, or entities without strong support.
+- Upgrading vague text into a more specific brand, model, version, filename, identifier, env var, URL, or email unless the raw text explicitly supports that detail.
 
 Uncertainty policy:
 - If multiple outputs are plausible, keep the raw text.
+- Common tokenization repairs that preserve the same literal token are allowed when strongly supported by the raw text, for example `read me` → `README`.
+- Treat uncommon, code-like, or brand-like tokens as opaque unless the raw text or `protected_terms` clearly disambiguates them.
 - If memory conflicts with the current raw window, trust the current raw window.
 
 Structured output policy:
@@ -200,6 +207,7 @@ Phase 2 eval categories:
 - Acronym preservation.
 - Protected terms.
 - Rare names and product names.
+- Specificity discipline for ambiguous product names, model families, versions, and code-like tokens.
 - Filler removal.
 - Harmless repetition cleanup.
 - No-change stability.
@@ -207,8 +215,8 @@ Phase 2 eval categories:
 - No-translation behavior.
 - Negation preservation.
 - Dates, times, and numbers.
-- Dictation commands.
-- Structured-entry normalization for emails, phone numbers, URLs, IDs, and versions.
+- Dictation commands and command-literal ambiguity.
+- Structured-entry normalization for emails, phone numbers, URLs, IDs, and versions, including partial-field safety cases.
 
 Phase 3 eval categories:
 - Cross-turn number correction.
@@ -242,4 +250,3 @@ Decision boundary:
 - If the edit can be decided from one turn alone without changing meaning, it belongs in Phase 2.
 - If the edit requires deciding what the speaker finally meant across turns, it belongs in Phase 3.
 - If the edit changes transcript structure, it belongs in Phase 3.
-

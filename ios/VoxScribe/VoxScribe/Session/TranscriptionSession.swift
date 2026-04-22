@@ -278,6 +278,12 @@ final class TranscriptionSession {
     private func applyCorrection(_ corrected: [Segment]) {
         for seg in corrected {
             guard let idx = segments.firstIndex(where: { $0.id == seg.id }) else { continue }
+            if seg.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                // Correction judged the turn to be pure disfluency — drop it
+                // instead of leaving a blank row in the transcript.
+                segments.remove(at: idx)
+                continue
+            }
             segments[idx].text = seg.text
             segments[idx].state = .corrected
             segments[idx].sourceTurnOrders = seg.sourceTurnOrders
