@@ -47,6 +47,7 @@ struct ServerClient: Sendable {
     func fetchSessionCredentials(vocabulary: SessionVocabulary) async throws -> SessionCredentials {
         struct Body: Encodable {
             let keytermsPrompt: [String]
+            let transcriber: String
         }
         struct Response: Decodable {
             let provider: String
@@ -63,7 +64,10 @@ struct ServerClient: Sendable {
 
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
-        req.httpBody = try encoder.encode(Body(keytermsPrompt: vocabulary.keytermsPrompt))
+        req.httpBody = try encoder.encode(Body(
+            keytermsPrompt: vocabulary.keytermsPrompt,
+            transcriber: vocabulary.transcriber.serverValue
+        ))
 
         let (data, response) = try await send(req)
         try ensureOK(response)
@@ -94,6 +98,7 @@ struct ServerClient: Sendable {
         sessionId: String,
         vocabulary: SessionVocabulary,
         profile: String,
+        detectedLanguage: String?,
         turns: [TurnInput]
     ) async throws -> [Segment] {
         struct Body: Encodable {
@@ -101,6 +106,8 @@ struct ServerClient: Sendable {
             let vocabularyRevision: Int
             let protectedTerms: [String]
             let profile: String
+            let transcriber: String
+            let detectedLanguage: String?
             let turns: [TurnInput]
         }
 
@@ -109,6 +116,8 @@ struct ServerClient: Sendable {
             vocabularyRevision: vocabulary.revision,
             protectedTerms: vocabulary.protectedTerms,
             profile: profile,
+            transcriber: vocabulary.transcriber.serverValue,
+            detectedLanguage: detectedLanguage,
             turns: turns
         )
 

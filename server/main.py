@@ -40,16 +40,24 @@ async def correct(req: CorrectRequest):
         raise HTTPException(status_code=400, detail="/correct accepts exactly one turn (multi-turn is Phase 3).")
 
     logger.info(
-        "correct session=%s revision=%d profile=%s protected_terms=%d turn_order=%d",
+        "correct session=%s revision=%d transcriber=%s profile=%s protected_terms=%d turn_order=%d detected_language=%s",
         req.session_id,
         req.vocabulary_revision,
+        req.transcriber,
         req.profile,
         len(req.protected_terms),
         req.turns[0].turn_order,
+        req.detected_language,
     )
 
     turn = req.turns[0]
-    cleaned = await correct_single_turn(turn.transcript, req.protected_terms, req.profile)
+    cleaned = await correct_single_turn(
+        turn.transcript,
+        req.protected_terms,
+        req.profile,
+        req.detected_language,
+        req.transcriber,
+    )
     segment = Segment(
         id=f"turn-{turn.turn_order}",
         source_turn_orders=[turn.turn_order],

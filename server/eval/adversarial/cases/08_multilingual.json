@@ -1,0 +1,159 @@
+[
+  {
+    "id": "ml-001-devanagari-hinglish",
+    "profile": "default",
+    "transcriber": "multilingual",
+    "detected_language": "hi",
+    "protected_terms": [],
+    "input_transcript": "यार चाय पी लेते हैं",
+    "assertions": [
+      {"type": "not_contains", "pattern": "यार"},
+      {"type": "not_contains", "pattern": "चाय"},
+      {"type": "not_contains", "pattern": "tea", "ignore_case": true},
+      {"type": "not_contains", "pattern": "dude", "ignore_case": true},
+      {"type": "not_contains", "pattern": "friend", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "yaar", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "chai", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.5, "max": 5.0}
+    ],
+    "notes": "Devanagari script must be transliterated to Latin (Hinglish), not translated to English."
+  },
+  {
+    "id": "ml-002-devanagari-place-name",
+    "profile": "default",
+    "transcriber": "multilingual",
+    "detected_language": "hi",
+    "protected_terms": [],
+    "input_transcript": "मुझे कल मुंबई जाना है",
+    "assertions": [
+      {"type": "not_contains", "pattern": "मुंबई"},
+      {"type": "not_contains", "pattern": "जाना"},
+      {"type": "contains_exact", "pattern": "Mumbai"},
+      {"type": "not_contains", "pattern": "I have to go", "ignore_case": true},
+      {"type": "not_contains", "pattern": "tomorrow", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.5, "max": 5.0}
+    ],
+    "notes": "Hindi Devanagari with a proper noun. Output Latin-script Hinglish with 'Mumbai' truecased; must not translate to English."
+  },
+  {
+    "id": "ml-003-hinglish-already-latin",
+    "profile": "default",
+    "transcriber": "multilingual",
+    "detected_language": "hi",
+    "protected_terms": [],
+    "input_transcript": "arre Yaar Chalo chai pi lete hain",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "yaar", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "chai", "ignore_case": true},
+      {"type": "not_contains", "pattern": "tea", "ignore_case": true},
+      {"type": "not_contains", "pattern": "dude", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.6, "max": 1.8}
+    ],
+    "notes": "Hinglish already in Latin script but with ASR-style miscasing (random capitals) and no punctuation. Should clean formatting without translating."
+  },
+  {
+    "id": "ml-004-english-proper-noun-casing",
+    "profile": "default",
+    "transcriber": "multilingual",
+    "detected_language": "en",
+    "protected_terms": [],
+    "input_transcript": "So we're building a demo with Whisper rt and Claude haiku.",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "Whisper", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "Claude"},
+      {"type": "contains_exact", "pattern": "Haiku"},
+      {"type": "length_ratio_between", "min": 0.7, "max": 1.6}
+    ],
+    "notes": "English under multilingual transcriber with miscased proper nouns. Model must fix casing without protected_terms list."
+  },
+  {
+    "id": "ml-005-devanagari-filler",
+    "profile": "default",
+    "transcriber": "multilingual",
+    "detected_language": "hi",
+    "protected_terms": [],
+    "input_transcript": "मतलब, उम, कल मीटिंग है",
+    "assertions": [
+      {"type": "not_contains", "pattern": "मतलब"},
+      {"type": "not_contains", "pattern": "मीटिंग"},
+      {"type": "contains_exact", "pattern": "kal", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.4, "max": 4.0}
+    ],
+    "notes": "Devanagari with filler. Content must transliterate to Latin (meeting is a Hindi loanword, 'meeting hai' is a valid transliteration). Source script must be gone."
+  },
+  {
+    "id": "ml-006-devanagari-self-correction",
+    "profile": "default",
+    "transcriber": "multilingual",
+    "detected_language": "hi",
+    "protected_terms": [],
+    "input_transcript": "दो नहीं, तीन लोग आएंगे",
+    "assertions": [
+      {"type": "not_contains", "pattern": "दो"},
+      {"type": "not_contains", "pattern": "तीन"},
+      {"type": "does_not_resolve_self_correction", "markers": ["do", "teen"]},
+      {"type": "length_ratio_between", "min": 0.5, "max": 5.0}
+    ],
+    "notes": "Devanagari self-correction. Both numbers ('do' and 'teen') must appear in transliterated output — don't resolve the correction."
+  },
+  {
+    "id": "ml-007-spanish-passthrough",
+    "profile": "default",
+    "transcriber": "multilingual",
+    "detected_language": "es",
+    "protected_terms": [],
+    "input_transcript": "Hola, cómo estás hoy?",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "Hola"},
+      {"type": "not_contains", "pattern": "Hello", "ignore_case": true},
+      {"type": "not_contains", "pattern": "how are you", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.7, "max": 1.5}
+    ],
+    "notes": "Spanish (already Latin script) should not be translated to English."
+  },
+  {
+    "id": "ml-008-cyrillic-transliteration",
+    "profile": "default",
+    "transcriber": "multilingual",
+    "detected_language": "ru",
+    "protected_terms": [],
+    "input_transcript": "Привет, как дела?",
+    "assertions": [
+      {"type": "not_contains", "pattern": "Привет"},
+      {"type": "not_contains", "pattern": "дела"},
+      {"type": "not_contains", "pattern": "hello", "ignore_case": true},
+      {"type": "not_contains", "pattern": "how are you", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.5, "max": 4.0}
+    ],
+    "notes": "Russian Cyrillic must transliterate to Latin (e.g., 'Privet, kak dela?'), not translate to English."
+  },
+  {
+    "id": "ml-009-devanagari-dictation",
+    "profile": "dictation",
+    "transcriber": "multilingual",
+    "detected_language": "hi",
+    "protected_terms": [],
+    "input_transcript": "उम्म यार क्या हाल है",
+    "assertions": [
+      {"type": "not_contains", "pattern": "यार"},
+      {"type": "not_contains", "pattern": "उम्म"},
+      {"type": "not_contains", "pattern": "dude", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "yaar", "ignore_case": true},
+      {"type": "length_ratio_between", "min": 0.4, "max": 4.0}
+    ],
+    "notes": "Dictation profile under multilingual: fillers/interjections dropped, Devanagari transliterated."
+  },
+  {
+    "id": "ml-010-unknown-language",
+    "profile": "default",
+    "transcriber": "multilingual",
+    "detected_language": null,
+    "protected_terms": [],
+    "input_transcript": "just a regular english sentence nothing fancy",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "English"},
+      {"type": "length_ratio_between", "min": 0.7, "max": 1.6}
+    ],
+    "notes": "Multilingual transcriber with detected_language=null (unknown). Latin-script input missing sentence-initial capital and end-of-sentence punctuation; model must fix those."
+  }
+]

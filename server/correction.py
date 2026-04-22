@@ -4,7 +4,7 @@ import os
 
 from anthropic import AsyncAnthropic
 
-from schemas import CorrectionProfile
+from schemas import CorrectionProfile, Transcriber
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +18,13 @@ LENGTH_DRIFT_MAX_RATIO = 2.0
 # Per-profile system prompts
 # ---------------------------------------------------------------------------
 
-_SHARED_PROMPT = """You are a conservative ASR correction editor for a live voice keyboard and general-purpose voice text-input system.
+_STANDARD_SHARED = """You are a conservative ASR correction editor for a live voice keyboard and general-purpose voice text-input system. The corrected text may be inserted into notes, chat, email, search, forms, or structured fields.
 
-The corrected text may be inserted into notes, chat, email, search, forms, or structured fields.
+The upstream ASR is English-only and already applies casing and end-of-sentence punctuation. Use that formatting as a starting signal, but treat it as fallible — the ASR commonly miscases proper nouns (including protected terms), misplaces commas, or splits sentences at the wrong boundary. Fix those mistakes; do not re-case or re-punctuate text that is already correct.
 
 Input:
-- one raw ASR transcript turn
-- a JSON list of PROTECTED terms
+- RAW: one raw ASR transcript turn, already lightly formatted by the ASR.
+- PROTECTED: a JSON list of terms that must be preserved verbatim (same spelling, same casing).
 
 Your job:
 - Restore punctuation and sentence boundaries when clearly supported.
@@ -34,11 +34,10 @@ Your job:
 - Preserve every PROTECTED term exactly — same spelling, same casing — wherever it appears.
 
 Hard rules:
-- Do NOT summarize.
-- Do NOT paraphrase for style.
+- Do NOT summarize or paraphrase for style.
+- Do NOT translate any text, including code-switched or non-English words that happen to appear in the raw.
 - Do NOT make the text more formal, more concise, or more note-like than the raw speech supports.
 - Do NOT substitute synonyms unless clearly required to fix an ASR error.
-- Do NOT translate any text, including code-switched or non-English words.
 - Do NOT add content, names, numbers, dates, or entities not already supported by the raw text.
 - Do NOT resolve self-corrections. Phrases like "no actually X", "no wait X", "I mean X", "scratch that X", and "no make that X" are self-correction markers. Keep both the original value and the corrected value in the output verbatim. Resolving self-corrections is Phase 3 behavior.
 - Do NOT convert spoken number words to digits when they appear inside a self-correction.
@@ -47,26 +46,71 @@ Hard rules:
 - When multiple outputs are plausible, keep the raw wording.
 """
 
-_DEFAULT_PROFILE = """Profile: default
-Apply standard transcript cleanup only.
+_MULTILINGUAL_SHARED = """You are a conservative ASR correction editor for a live voice keyboard and general-purpose voice text-input system. The corrected text may be inserted into notes, chat, email, search, forms, or structured fields.
+
+The upstream ASR is multilingual with per-turn language detection. For Latin-script languages it already applies casing and end-of-sentence punctuation; use that formatting as a starting signal, but treat it as fallible (miscased proper nouns, misplaced commas, wrong sentence boundaries). For non-Latin scripts the raw transcript may arrive in the native script (for example Devanagari for Hindi, Cyrillic for Russian, Arabic script, CJK). The corrected output must always be in Latin script. There are no PROTECTED terms in this mode.
+
+Input:
+- RAW: one raw ASR transcript turn, already lightly formatted by the ASR.
+- DETECTED_LANGUAGE: ISO-639-1 language code from the ASR (for example "en", "hi", "es"). Use this to pick the right romanization convention.
+
+Your job:
+- Restore punctuation and sentence boundaries when clearly supported.
+- Truecase sentence starts and clear proper nouns.
+- Remove obvious filler words only when they are clearly non-meaningful.
+- Clean harmless immediate repetitions or false starts only when meaning does not change.
+- If RAW contains any non-Latin characters, transliterate them into the conventional Latin romanization for DETECTED_LANGUAGE (for example Devanagari → Hinglish / ITRANS-style). Transliteration changes only the script; every word stays in its original language with the same meaning.
+
+Hard rules:
+- Do NOT translate. Keep each word in the language it was spoken. Transliteration (script change only, same words, same meaning) is not translation.
+- Do NOT summarize or paraphrase for style.
+- Do NOT make the text more formal, more concise, or more note-like than the raw speech supports.
+- Do NOT substitute synonyms unless clearly required to fix an ASR error.
+- Do NOT add content, names, numbers, dates, or entities not already supported by the raw text.
+- Do NOT resolve self-corrections. Phrases like "no actually X", "no wait X", "I mean X", "scratch that X", and "no make that X" are self-correction markers. Keep both the original value and the corrected value in the output verbatim.
+- Do NOT convert spoken number words to digits when they appear inside a self-correction.
+- Do NOT change meaning, even slightly.
+- If the raw text is already clean and entirely in Latin script, return it unchanged.
+- When multiple outputs are plausible, keep the raw wording.
+"""
+
+_STANDARD_DEFAULT_EXAMPLES = """Profile: default
+Apply light transcript cleanup. The ASR has already cased and punctuated the text; keep that formatting and fix only the remaining issues (dropped fillers, miscased protected terms, false starts).
 
 Examples:
 
 PROTECTED: ["VoxScribe", "AssemblyAI", "Haiku"]
-RAW: so um were building a voxscribe demo with assemblyai and claude haiku
+RAW: So, um, we're building a Voxscribe demo with Assemblyai and Claude Haiku.
 OUTPUT (cleaned_text): So we're building a VoxScribe demo with AssemblyAI and Claude Haiku.
 
 PROTECTED: []
-RAW: lets meet at 2 no actually 3
+RAW: Let's meet at 2, no actually 3.
 OUTPUT (cleaned_text): Let's meet at 2, no actually 3.
 
 PROTECTED: ["yaar", "chai"]
-RAW: arre yaar chalo chai pi lete hain
+RAW: Arre yaar, chalo chai pi lete hain.
 OUTPUT (cleaned_text): Arre yaar, chalo chai pi lete hain.
 
 PROTECTED: ["FastAPI"]
-RAW: i wa i want to finish the fastapi endpoint today
+RAW: I wa, I want to finish the Fastapi endpoint today.
 OUTPUT (cleaned_text): I want to finish the FastAPI endpoint today."""
+
+_MULTILINGUAL_DEFAULT_EXAMPLES = """Profile: default
+Apply light transcript cleanup and romanize any non-Latin text. The ASR has already cased and punctuated the input for Latin-script languages; keep that formatting. For non-Latin scripts, romanize and apply casing/punctuation during transliteration.
+
+Examples:
+
+DETECTED_LANGUAGE: en
+RAW: So, um, we're building a demo with Whisper rt and Claude Haiku.
+OUTPUT (cleaned_text): So we're building a demo with Whisper RT and Claude Haiku.
+
+DETECTED_LANGUAGE: hi
+RAW: यार चाय पी लेते हैं
+OUTPUT (cleaned_text): Yaar, chai pi lete hain.
+
+DETECTED_LANGUAGE: hi
+RAW: मुझे कल मुंबई जाना है
+OUTPUT (cleaned_text): Mujhe kal Mumbai jaana hai."""
 
 _DICTATION_PROFILE = """Profile: dictation
 Interpret spoken punctuation and formatting commands as punctuation only when they are clearly being used as commands rather than literal words.
@@ -87,14 +131,12 @@ If a word like "period" appears as part of natural prose, keep its literal meani
 
 Examples:
 
-PROTECTED: []
-RAW: remind me to buy milk period new paragraph call the dentist question mark
+RAW: Remind me to buy milk period new paragraph call the dentist question mark.
 OUTPUT (cleaned_text): Remind me to buy milk.
 
 Call the dentist?
 
-PROTECTED: []
-RAW: during that period I was traveling
+RAW: During that period I was traveling.
 OUTPUT (cleaned_text): During that period I was traveling."""
 
 _STRUCTURED_ENTRY_PROFILE = """Profile: structured_entry
@@ -113,18 +155,19 @@ When unsure, preserve the raw wording.
 
 Examples:
 
-PROTECTED: []
 RAW: my email is john dot doe at gmail dot com
 OUTPUT (cleaned_text): My email is john.doe@gmail.com.
 
-PROTECTED: []
 RAW: maybe call me at five five
 OUTPUT (cleaned_text): Maybe call me at five five."""
 
-_PROMPTS: dict[str, str] = {
-    "default": f"{_SHARED_PROMPT}\n\n{_DEFAULT_PROFILE}",
-    "dictation": f"{_SHARED_PROMPT}\n\n{_DEFAULT_PROFILE}\n\n{_DICTATION_PROFILE}",
-    "structured_entry": f"{_SHARED_PROMPT}\n\n{_DEFAULT_PROFILE}\n\n{_STRUCTURED_ENTRY_PROFILE}",
+_PROMPTS: dict[tuple[Transcriber, CorrectionProfile], str] = {
+    ("standard", "default"): f"{_STANDARD_SHARED}\n\n{_STANDARD_DEFAULT_EXAMPLES}",
+    ("standard", "dictation"): f"{_STANDARD_SHARED}\n\n{_STANDARD_DEFAULT_EXAMPLES}\n\n{_DICTATION_PROFILE}",
+    ("standard", "structured_entry"): f"{_STANDARD_SHARED}\n\n{_STANDARD_DEFAULT_EXAMPLES}\n\n{_STRUCTURED_ENTRY_PROFILE}",
+    ("multilingual", "default"): f"{_MULTILINGUAL_SHARED}\n\n{_MULTILINGUAL_DEFAULT_EXAMPLES}",
+    ("multilingual", "dictation"): f"{_MULTILINGUAL_SHARED}\n\n{_MULTILINGUAL_DEFAULT_EXAMPLES}\n\n{_DICTATION_PROFILE}",
+    ("multilingual", "structured_entry"): f"{_MULTILINGUAL_SHARED}\n\n{_MULTILINGUAL_DEFAULT_EXAMPLES}\n\n{_STRUCTURED_ENTRY_PROFILE}",
 }
 
 # ---------------------------------------------------------------------------
@@ -164,7 +207,15 @@ def _get_client() -> AsyncAnthropic:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _format_user_message(raw: str, protected_terms: list[str]) -> str:
+def _format_user_message(
+    raw: str,
+    protected_terms: list[str],
+    detected_language: str | None,
+    transcriber: Transcriber,
+) -> str:
+    if transcriber == "multilingual":
+        lang = detected_language or "unknown"
+        return f"DETECTED_LANGUAGE: {lang}\nRAW: {raw}"
     pt = json.dumps(protected_terms, ensure_ascii=False)
     return f"PROTECTED: {pt}\nRAW: {raw}"
 
@@ -183,21 +234,31 @@ def _is_low_entropy(raw: str) -> bool:
     return suspect / len(significant) >= 0.5
 
 
-def _passes_safety(raw: str, cleaned: str, protected_terms: list[str]) -> tuple[bool, str]:
+def _passes_safety(
+    raw: str,
+    cleaned: str,
+    protected_terms: list[str],
+    transcriber: Transcriber,
+) -> tuple[bool, str]:
     """Return (ok, reason_code). reason_code is non-empty on failure."""
     if not cleaned:
         return False, "empty_output"
 
+    # Transliteration (e.g. Devanagari → Latin) can 2–3× the character count,
+    # so the length-drift guard is wider in multilingual mode.
+    max_ratio = 3.5 if transcriber == "multilingual" else LENGTH_DRIFT_MAX_RATIO
+
     raw_len = len(raw)
     if raw_len > 0:
         ratio = len(cleaned) / raw_len
-        if ratio < LENGTH_DRIFT_MIN_RATIO or ratio > LENGTH_DRIFT_MAX_RATIO:
+        if ratio < LENGTH_DRIFT_MIN_RATIO or ratio > max_ratio:
             return False, f"length_drift(ratio={ratio:.2f})"
 
-    raw_lower = raw.lower()
-    for term in protected_terms:
-        if term.lower() in raw_lower and term not in cleaned:
-            return False, f"protected_term_dropped({term!r})"
+    if transcriber == "standard":
+        raw_lower = raw.lower()
+        for term in protected_terms:
+            if term.lower() in raw_lower and term not in cleaned:
+                return False, f"protected_term_dropped({term!r})"
 
     return True, ""
 
@@ -210,6 +271,8 @@ async def correct_single_turn(
     raw: str,
     protected_terms: list[str],
     profile: CorrectionProfile = "default",
+    detected_language: str | None = None,
+    transcriber: Transcriber = "standard",
 ) -> str:
     """Return a cleaned transcript. Falls back to raw on any safety or API failure."""
     if not raw.strip():
@@ -219,7 +282,7 @@ async def correct_single_turn(
         logger.info("low-entropy input detected; skipping Haiku and returning raw profile=%s", profile)
         return raw
 
-    system_prompt = _PROMPTS[profile]
+    system_prompt = _PROMPTS[(transcriber, profile)]
 
     try:
         resp = await _get_client().messages.create(
@@ -238,7 +301,7 @@ async def correct_single_turn(
                 "name": "submit_single_turn_correction",
                 "disable_parallel_tool_use": True,
             },
-            messages=[{"role": "user", "content": _format_user_message(raw, protected_terms)}],
+            messages=[{"role": "user", "content": _format_user_message(raw, protected_terms, detected_language, transcriber)}],
         )
     except Exception:
         logger.exception("Haiku call failed; falling back to raw profile=%s", profile)
@@ -268,7 +331,7 @@ async def correct_single_turn(
         return raw
 
     cleaned = cleaned.strip()
-    ok, reason = _passes_safety(raw, cleaned, protected_terms)
+    ok, reason = _passes_safety(raw, cleaned, protected_terms, transcriber)
     if not ok:
         logger.warning("safety guard tripped reason=%s profile=%s; falling back to raw", reason, profile)
         return raw

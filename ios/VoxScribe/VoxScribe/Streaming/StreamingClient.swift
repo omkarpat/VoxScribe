@@ -112,11 +112,17 @@ final class AssemblyAIStreamingClient: StreamingTranscriberClient {
                 let turnOrder: Int
                 let transcript: String
                 let endOfTurn: Bool
+                let languageCode: String?
             }
             guard let p = try? decoder.decode(Payload.self, from: data) else { return nil }
             let stamp = String(format: "%.3f", Date().timeIntervalSince1970)
-            print("[AssemblyAIStreamingClient] Turn t=\(stamp) order=\(p.turnOrder) eot=\(p.endOfTurn) len=\(p.transcript.count) text=\"\(p.transcript)\"")
-            return .turn(TurnMessage(turnOrder: p.turnOrder, transcript: p.transcript, endOfTurn: p.endOfTurn))
+            print("[AssemblyAIStreamingClient] Turn t=\(stamp) order=\(p.turnOrder) eot=\(p.endOfTurn) lang=\(p.languageCode ?? "-") len=\(p.transcript.count) text=\"\(p.transcript)\"")
+            return .turn(TurnMessage(
+                turnOrder: p.turnOrder,
+                transcript: p.transcript,
+                endOfTurn: p.endOfTurn,
+                languageCode: p.languageCode
+            ))
         case "Termination":
             return .termination
         case "Error":
