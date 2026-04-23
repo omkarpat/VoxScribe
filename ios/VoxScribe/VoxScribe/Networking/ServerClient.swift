@@ -143,6 +143,55 @@ struct ServerClient: Sendable {
         }
     }
 
+    // MARK: - /correct_code
+
+    func correctCode(
+        sessionId: String,
+        vocabulary: SessionVocabulary,
+        turns: [TurnInput]
+    ) async throws -> [Segment] {
+        struct Body: Encodable {
+            let sessionId: String
+            let vocabularyRevision: Int
+            let protectedTerms: [String]
+            let codeLanguage: String
+            let transcriber: String
+            let detectedLanguage: String
+            let turns: [TurnInput]
+        }
+
+        let payload = Body(
+            sessionId: sessionId,
+            vocabularyRevision: vocabulary.revision,
+            protectedTerms: vocabulary.protectedTerms,
+            codeLanguage: "python",
+            transcriber: vocabulary.transcriber.serverValue,
+            detectedLanguage: "en",
+            turns: turns
+        )
+
+        var req = URLRequest(url: baseURL.appendingPathComponent("correct_code"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "content-type")
+        req.timeoutInterval = correctionTimeout
+
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        req.httpBody = try encoder.encode(payload)
+
+        let (data, response) = try await send(req)
+        try ensureOK(response)
+
+        struct Response: Decodable { let segments: [Segment] }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        do {
+            return try decoder.decode(Response.self, from: data).segments
+        } catch {
+            throw ServerClientError.decoding(String(describing: error))
+        }
+    }
+
     // MARK: - internals
 
     private func send(_ request: URLRequest) async throws -> (Data, URLResponse) {

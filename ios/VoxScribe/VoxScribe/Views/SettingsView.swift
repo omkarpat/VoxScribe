@@ -76,15 +76,28 @@ struct SettingsView: View {
     private var modeSection: some View {
         Section {
             Picker("Mode", selection: $preferences.mode) {
-                ForEach(CorrectionMode.allCases) { mode in
+                ForEach(availableModes) { mode in
                     Text(mode.displayName).tag(mode)
                 }
             }
             .pickerStyle(.segmented)
+            if preferences.mode == .code {
+                LabeledContent("Language", value: "Python")
+                    .foregroundStyle(.secondary)
+            }
         } header: {
             Text("Correction mode")
         } footer: {
             Text(modeFooter)
+        }
+    }
+
+    /// Code mode is English Standard-only at launch, so it only appears in
+    /// the picker when the Standard transcriber is selected.
+    private var availableModes: [CorrectionMode] {
+        switch preferences.transcriber {
+        case .standard: return CorrectionMode.allCases
+        case .multilingual: return CorrectionMode.allCases.filter { $0 != .code }
         }
     }
 
@@ -94,6 +107,8 @@ struct SettingsView: View {
             return "Punctuation, casing, light cleanup, and normalization of complete emails, phone numbers, URLs, IDs, and versions. Protects keyterms."
         case .dictation:
             return "Standard plus spoken punctuation and line/paragraph commands."
+        case .code:
+            return "Optimized for editor use. Applies Python naming and symbol conventions to code-like utterances while keeping prose comments and docstrings readable. Python is the only supported code language right now."
         }
     }
 

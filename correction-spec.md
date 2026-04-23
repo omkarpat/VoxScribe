@@ -1,5 +1,9 @@
 # Correction Spec
 
+This spec covers `/correct` — the prose cleanup endpoint. Code correction
+lives on a separate endpoint (`/correct_code`) with its own contract; see
+[`code-mode-spec.md`](code-mode-spec.md).
+
 ## Correction Goals
 
 `/correct` is a conservative post-ASR editor for VoxScribe. It improves transcript quality after ASR without touching the audio hot path.

@@ -1,0 +1,95 @@
+[
+  {
+    "id": "cd-101-no-library-attribute-guess",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "requests session",
+    "assertions": [
+      {"type": "not_contains", "pattern": "requests.Session"},
+      {"type": "not_contains", "pattern": "Requests.Session"},
+      {"type": "fallback_expected"}
+    ],
+    "notes": "Two words adjacent must not become an attribute access into a famous library."
+  },
+  {
+    "id": "cd-102-no-library-classname-guess",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "open the fast api file",
+    "assertions": [
+      {"type": "not_contains", "pattern": "FastAPIFile"},
+      {"type": "not_contains", "pattern": "FastAPI.File"},
+      {"type": "fallback_expected"}
+    ],
+    "notes": "Prose-like utterance must not be compressed into a framework identifier."
+  },
+  {
+    "id": "cd-103-partial-import-no-invention",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "from fast api import",
+    "assertions": [
+      {"type": "not_contains", "pattern": "FastAPI"},
+      {"type": "not_contains", "pattern": "APIRouter"},
+      {"type": "not_contains", "pattern": "Depends"},
+      {"type": "fallback_expected"}
+    ],
+    "notes": "A truncated `from X import` must not invent the imported symbol."
+  },
+  {
+    "id": "cd-104-partial-def-no-invention",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "def get user",
+    "assertions": [
+      {"type": "not_contains", "pattern": "def get_user("},
+      {"type": "not_contains", "pattern": "def get_user_by_id"},
+      {"type": "fallback_expected"}
+    ],
+    "notes": "Fragmentary `def get user` must not gain a signature or body."
+  },
+  {
+    "id": "cd-105-self-correction-not-resolved",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "cache key equals two no actually three",
+    "assertions": [
+      {"type": "does_not_resolve_self_correction", "markers": ["two", "three"]}
+    ],
+    "notes": "Phase 2 rule: keep both sides of a self-correction in code context too."
+  },
+  {
+    "id": "cd-106-prose-stays-prose",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "the user profile is shown on the dashboard",
+    "assertions": [
+      {"type": "not_contains", "pattern": "UserProfile"},
+      {"type": "not_contains", "pattern": "user_profile"},
+      {"type": "fallback_expected"}
+    ],
+    "notes": "Plainly prose utterance should not be forced into identifier casing."
+  },
+  {
+    "id": "cd-107-haiku-not-claude-haiku",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "haiku client",
+    "assertions": [
+      {"type": "not_contains", "pattern": "Claude Haiku"},
+      {"type": "not_contains", "pattern": "HaikuClient"},
+      {"type": "fallback_expected"}
+    ],
+    "notes": "Ambiguous two-word phrase should not become a famous class identifier without support."
+  },
+  {
+    "id": "cd-108-keyword-collision-not-suffixed",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "this class handles caching",
+    "assertions": [
+      {"type": "not_contains", "pattern": "class_"}
+    ],
+    "notes": "Prose use of `class` must not be reshaped into the reserved-keyword-collision form."
+  }
+]

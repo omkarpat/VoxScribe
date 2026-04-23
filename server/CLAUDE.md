@@ -7,6 +7,16 @@ This file covers the server-side correction stack in `server/`.
 The most important behavior is not "best rewrite." It is conservative cleanup
 with safe fallback to raw text.
 
+The stack has two single-turn correction endpoints:
+
+- `/correct` — prose, owned by `server/correction.py` (Haiku-tier).
+- `/correct_code` — Python code, owned by `server/code_correction.py` plus
+  deterministic validators in `server/code_validation.py` (Sonnet-tier).
+
+Both fall back to raw on API error, malformed tool output, or safety/validation
+failure. Behavioral contracts: `correction-spec.md` (prose) and
+`code-mode-spec.md` (code).
+
 ## Prompt Editing Rules
 
 When editing `server/correction.py`:
@@ -39,15 +49,41 @@ If the answer might be yes, tighten the prompt or add a safety case first.
 
 ## Required Sync Points
 
-Keep these aligned:
+Prose correction:
 
 - prompt wording in `server/correction.py`
 - behavioral contract in `/Users/omkarpatil/Projects/VoxScribe/correction-spec.md`
-- adversarial cases under `server/eval/adversarial/cases/`
+- adversarial cases under `server/eval/adversarial/cases/` (01–11)
 - payload handling in `server/eval/adversarial/runner.py`
+
+Code correction:
+
+- prompt wording in `server/code_correction.py`
+- deterministic checks in `server/code_validation.py`
+- behavioral contract in `/Users/omkarpatil/Projects/VoxScribe/code-mode-spec.md`
+- adversarial cases under `server/eval/adversarial/cases/12_code_*.json` and `13_code_*.json`
+- per-case `endpoint` routing in `server/eval/adversarial/runner.py`
 
 Important: multilingual adversarial cases rely on forwarding per-case
 `transcriber` and `detected_language`. Do not remove or bypass that plumbing.
+Code cases rely on the per-case `endpoint: "correct_code"` field to reach the
+right route.
+
+## Code Mode Rules
+
+When editing `server/code_correction.py` or `server/code_validation.py`:
+
+- keep the endpoint English-Standard-Python only at the schema layer; do not
+  soften those guards
+- preserve the rule that prose utterances stay prose (do not force identifier
+  casing)
+- preserve the rule that partial code fragments are not completed from general
+  programming knowledge
+- preserve self-correction non-resolution in code context
+- validation is a safety filter, not a proof of correctness — its job is to
+  trigger raw fallback on obvious structural mistakes, not to prove code runs
+- do not carry prose-path validators (length drift, protected-term verbatim
+  guard) into code validation; identifier reshaping legitimately breaks them
 
 ## Eval Guidance
 
