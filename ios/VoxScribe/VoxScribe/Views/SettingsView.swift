@@ -91,11 +91,9 @@ struct SettingsView: View {
     private var modeFooter: String {
         switch preferences.mode {
         case .standard:
-            return "Punctuation, casing, and light cleanup. Protects keyterms."
+            return "Punctuation, casing, light cleanup, and normalization of complete emails, phone numbers, URLs, IDs, and versions. Protects keyterms."
         case .dictation:
             return "Standard plus spoken punctuation and line/paragraph commands."
-        case .structured:
-            return "Standard plus normalization of emails, phone numbers, URLs, IDs, and versions."
         }
     }
 

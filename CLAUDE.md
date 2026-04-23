@@ -30,7 +30,7 @@ Allowed behavior:
 - obvious filler removal
 - harmless repetition and false-start cleanup
 - dictation command handling in `dictation`
-- structured normalization in `structured_entry` only when strongly supported
+- structured-text normalization (emails, phone numbers, URLs, versions, numeric IDs) within `default` only when every required component is present
 
 Disallowed behavior:
 
@@ -65,9 +65,9 @@ Examples of behavior we want:
 - keep partial structured data incomplete instead of completing it from product
   knowledge
 
-## Structured Entry Rule
+## Structured Text Rule
 
-`structured_entry` is for normalization only when all required pieces are
+`default` normalizes structured tokens only when every required piece is
 present in the single turn.
 
 Normalize only when strongly supported:
@@ -79,6 +79,9 @@ Normalize only when strongly supported:
 - complete numeric IDs
 
 If the input is partial or ambiguous, preserve the raw wording.
+
+The separate `structured_entry` profile has been retired. The server still
+accepts it as a deprecated alias of `default` for one compatibility window.
 
 ## Eval Expectations
 
@@ -96,7 +99,7 @@ Key Phase 2 adversarial categories include:
 - multilingual transliteration without translation
 - specificity discipline
 - dictation command vs literal-word ambiguity
-- structured-entry partial-field safety
+- structured-text partial-field safety under `default`
 
 ## Practical Rule For Future Edits
 

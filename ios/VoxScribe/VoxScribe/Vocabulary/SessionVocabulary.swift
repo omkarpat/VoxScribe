@@ -30,7 +30,6 @@ enum Transcriber: String, CaseIterable, Sendable, Identifiable {
 enum CorrectionMode: String, CaseIterable, Sendable, Identifiable {
     case standard
     case dictation
-    case structured
 
     var id: String { rawValue }
 
@@ -38,7 +37,6 @@ enum CorrectionMode: String, CaseIterable, Sendable, Identifiable {
         switch self {
         case .standard: return "Standard"
         case .dictation: return "Dictation"
-        case .structured: return "Structured"
         }
     }
 
@@ -47,7 +45,6 @@ enum CorrectionMode: String, CaseIterable, Sendable, Identifiable {
         switch self {
         case .standard: return "default"
         case .dictation: return "dictation"
-        case .structured: return "structured_entry"
         }
     }
 }
@@ -120,9 +117,14 @@ final class SessionPreferences {
         } else {
             self.terms = Self.defaultTerms
         }
-        if let raw = defaults.string(forKey: Self.modeKey),
-           let stored = CorrectionMode(rawValue: raw) {
-            self.mode = stored
+        if let raw = defaults.string(forKey: Self.modeKey) {
+            if let stored = CorrectionMode(rawValue: raw) {
+                self.mode = stored
+            } else {
+                // Migration: retired modes (e.g. "structured") fold into Standard.
+                self.mode = .standard
+                defaults.set(CorrectionMode.standard.rawValue, forKey: Self.modeKey)
+            }
         } else {
             self.mode = .standard
         }

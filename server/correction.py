@@ -43,9 +43,11 @@ Hard rules:
 - Do NOT substitute synonyms unless clearly required to fix an ASR error.
 - Do NOT add content, names, numbers, dates, or entities not already supported by the raw text.
 - You MAY repair obvious tokenization or spacing errors into the same canonical surface form when RAW already clearly supports that exact token and no extra semantic detail is introduced (for example "read me" → "README", "api" → "API").
+- You MAY normalize a complete structured token — email address, phone number, URL, software version, or numeric ID — when every required component is already present in RAW (for example "john dot doe at gmail dot com" → "john.doe@gmail.com"). If any component is missing, partial, or ambiguous, keep the raw wording.
 - Do NOT "upgrade" vague raw wording into a more specific brand, model family, version, filename, identifier, env var, email, URL, or code symbol unless that extra specificity is explicitly supported by RAW or required by PROTECTED.
 - Treat uncommon tokens, acronyms, package names, model names, file names, command flags, and mixed alphanumeric strings as opaque by default. If unsure, keep the raw token rather than guessing a canonical spelling.
 - A plausible canonical form is still a guess. Do not expand shorthand like "haiku", "api key", or partial structured fields into more specific forms unless the raw text itself already provides that detail.
+- Do NOT invent digits, domain names, TLDs, or version components to complete a partial structured field.
 - Do NOT resolve self-corrections. Phrases like "no actually X", "no wait X", "I mean X", "scratch that X", and "no make that X" are self-correction markers. Keep both the original value and the corrected value in the output verbatim. Resolving self-corrections is Phase 3 behavior.
 - Do NOT convert spoken number words to digits when they appear inside a self-correction.
 - Do NOT change meaning, even slightly.
@@ -79,9 +81,11 @@ Hard rules:
 - Do NOT substitute synonyms unless clearly required to fix an ASR error.
 - Do NOT add content, names, numbers, dates, or entities not already supported by the raw text.
 - You MAY repair obvious tokenization or spacing errors into the same canonical surface form when RAW already clearly supports that exact token and no extra semantic detail is introduced (for example "read me" → "README", "api" → "API").
+- You MAY normalize a complete structured token — email address, phone number, URL, software version, or numeric ID — when every required component is already present in RAW (for example "john dot doe at gmail dot com" → "john.doe@gmail.com"). If any component is missing, partial, or ambiguous, keep the raw wording.
 - Do NOT "upgrade" vague raw wording into a more specific brand, model family, version, filename, identifier, env var, email, URL, or code symbol unless that extra specificity is explicitly supported by RAW.
 - Treat uncommon tokens, acronyms, package names, model names, file names, command flags, and mixed alphanumeric strings as opaque by default. If unsure, keep the raw token rather than guessing a canonical spelling after transliteration or cleanup.
 - A plausible canonical form is still a guess. Do not expand shorthand like "haiku", "api key", or partial structured fields into more specific forms unless the raw text itself already provides that detail.
+- Do NOT invent digits, domain names, TLDs, or version components to complete a partial structured field.
 - Do NOT resolve self-corrections. Phrases like "no actually X", "no wait X", "I mean X", "scratch that X", and "no make that X" are self-correction markers. Keep both the original value and the corrected value in the output verbatim.
 - Do NOT convert spoken number words to digits when they appear inside a self-correction.
 - Do NOT change meaning, even slightly.
@@ -117,6 +121,10 @@ OUTPUT (cleaned_text): Let's use haiku for the quick pass.
 PROTECTED: []
 RAW: open the read me for the api
 OUTPUT (cleaned_text): Open the README for the API.
+
+PROTECTED: []
+RAW: my email is john dot doe at gmail dot com
+OUTPUT (cleaned_text): My email is john.doe@gmail.com.
 
 PROTECTED: []
 RAW: Hm, um.
@@ -182,39 +190,11 @@ Call the dentist?
 RAW: During that period I was traveling.
 OUTPUT (cleaned_text): During that period I was traveling."""
 
-_STRUCTURED_ENTRY_PROFILE = """Profile: structured_entry
-Normalize structured data only when the raw text strongly supports a specific normalization and every required component is present in the turn.
-
-Allowed when strongly supported:
-- email addresses
-- phone numbers
-- URLs
-- version numbers
-- numeric IDs
-
-Do NOT invent digits, domain names, TLDs, or version components.
-Do NOT infer a more canonical identifier from product knowledge alone.
-Do NOT normalize if the input is partial or ambiguous.
-When unsure, preserve the raw wording.
-
-Examples:
-
-RAW: my email is john dot doe at gmail dot com
-OUTPUT (cleaned_text): My email is john.doe@gmail.com.
-
-RAW: maybe call me at five five
-OUTPUT (cleaned_text): Maybe call me at five five.
-
-RAW: my email is jane dot doe at gmail
-OUTPUT (cleaned_text): My email is jane dot doe at gmail."""
-
 _PROMPTS: dict[tuple[Transcriber, CorrectionProfile], str] = {
     ("standard", "default"): f"{_STANDARD_SHARED}\n\n{_STANDARD_DEFAULT_EXAMPLES}",
     ("standard", "dictation"): f"{_STANDARD_SHARED}\n\n{_STANDARD_DEFAULT_EXAMPLES}\n\n{_DICTATION_PROFILE}",
-    ("standard", "structured_entry"): f"{_STANDARD_SHARED}\n\n{_STANDARD_DEFAULT_EXAMPLES}\n\n{_STRUCTURED_ENTRY_PROFILE}",
     ("multilingual", "default"): f"{_MULTILINGUAL_SHARED}\n\n{_MULTILINGUAL_DEFAULT_EXAMPLES}",
     ("multilingual", "dictation"): f"{_MULTILINGUAL_SHARED}\n\n{_MULTILINGUAL_DEFAULT_EXAMPLES}\n\n{_DICTATION_PROFILE}",
-    ("multilingual", "structured_entry"): f"{_MULTILINGUAL_SHARED}\n\n{_MULTILINGUAL_DEFAULT_EXAMPLES}\n\n{_STRUCTURED_ENTRY_PROFILE}",
 }
 
 # ---------------------------------------------------------------------------
