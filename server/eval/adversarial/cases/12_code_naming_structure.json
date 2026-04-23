@@ -1,0 +1,118 @@
+[
+  {
+    "id": "cd-001-snake-case-function-header",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "def get user by id self user id",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "def get_user_by_id"},
+      {"type": "contains_exact", "pattern": "self"},
+      {"type": "contains_exact", "pattern": "user_id"},
+      {"type": "contains_exact", "pattern": ":"}
+    ],
+    "notes": "Function header with implicit parens, comma, colon, and snake_case identifier."
+  },
+  {
+    "id": "cd-002-capwords-class-header",
+    "endpoint": "correct_code",
+    "protected_terms": ["BaseModel"],
+    "input_transcript": "class user profile base model",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "class UserProfile"},
+      {"type": "contains_exact", "pattern": "BaseModel"},
+      {"type": "contains_exact", "pattern": ":"}
+    ],
+    "notes": "Class header: CapWords, parens around base, trailing colon, protected term preserved."
+  },
+  {
+    "id": "cd-003-none-casing-in-assignment",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "cache key equals none",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "cache_key"},
+      {"type": "contains_exact", "pattern": "="},
+      {"type": "contains_exact", "pattern": "None"}
+    ],
+    "notes": "snake_case identifier, `=` assignment, and built-in constant casing for None."
+  },
+  {
+    "id": "cd-004-if-is-none-header",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "if user is none",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "if "},
+      {"type": "contains_exact", "pattern": "is None"},
+      {"type": "contains_exact", "pattern": ":"}
+    ],
+    "notes": "Implicit colon on an `if` header and `None` casing."
+  },
+  {
+    "id": "cd-005-dunder-init",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "dunder init self",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "__init__"},
+      {"type": "contains_exact", "pattern": "self"}
+    ],
+    "notes": "Dunder expansion only when explicitly dictated."
+  },
+  {
+    "id": "cd-006-env-var-identifier",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "set env var open ai api key",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "OPENAI_API_KEY"},
+      {"type": "not_contains", "pattern": "openai_api_key"}
+    ],
+    "notes": "Env-var identifier shorthand belongs in Code mode, not Standard."
+  },
+  {
+    "id": "cd-007-version-shorthand",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "install pydantic version two point one",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "2.1"},
+      {"type": "not_contains", "pattern": "two point one", "ignore_case": true}
+    ],
+    "notes": "Version shorthand is allowed in Code mode when dictated in code context."
+  },
+  {
+    "id": "cd-008-comment-line",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "comment this caches the result",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "#"},
+      {"type": "contains_exact", "pattern": "caches the result", "ignore_case": true}
+    ],
+    "notes": "Explicit `comment` word becomes a `#` line; prose body preserved."
+  },
+  {
+    "id": "cd-009-docstring-triple-quote",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "triple quote return the active user triple quote",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "\"\"\""},
+      {"type": "contains_exact", "pattern": "Return the active user", "ignore_case": true}
+    ],
+    "notes": "`triple quote ... triple quote` resolves to triple-double-quoted docstring."
+  },
+  {
+    "id": "cd-010-keyword-preservation",
+    "endpoint": "correct_code",
+    "protected_terms": [],
+    "input_transcript": "for item in items",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "for "},
+      {"type": "contains_exact", "pattern": " in "},
+      {"type": "contains_exact", "pattern": ":"}
+    ],
+    "notes": "Python keywords stay lowercase; `for ... in ...:` header gets the colon."
+  }
+]

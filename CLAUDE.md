@@ -8,19 +8,34 @@ without inventing meaning or over-correcting ASR output.
 
 ## Source Of Truth
 
-When changing the correction behavior, keep these files in sync:
+When changing prose correction behavior, keep these files in sync:
 
 - `server/correction.py`
 - `correction-spec.md`
 - `server/eval/adversarial/cases/*.json`
 - `server/eval/adversarial/runner.py`
 
+When changing code correction behavior, keep these files in sync:
+
+- `server/code_correction.py`
+- `server/code_validation.py`
+- `code-mode-spec.md`
+- `server/eval/adversarial/cases/12_code_*.json`, `13_code_*.json`
+
 If one of those changes materially and the others do not, the repo is probably
 drifting.
 
 ## Correction Contract
 
-`/correct` is a single-turn Phase 2 cleanup pass.
+Two single-turn correction endpoints, deliberately separate:
+
+- `/correct` — prose cleanup. Profiles: `default`, `dictation`. Haiku-tier model.
+- `/correct_code` — Python code cleanup. English Standard transcriber only,
+  `code_language: "python"` only. Sonnet-tier model plus deterministic
+  validation; raw fallback on API error, malformed output, or validation
+  failure. Behavior owned by `code-mode-spec.md`.
+
+### `/correct` behavior
 
 Allowed behavior:
 
@@ -89,7 +104,7 @@ accepts it as a deprecated alias of `default` for one compatibility window.
 
 Prompt changes are not done until the adversarial suite is updated or verified.
 
-Key Phase 2 adversarial categories include:
+Key Phase 2 adversarial categories (`/correct`) include:
 
 - protected terms
 - meaning preservation
@@ -102,6 +117,16 @@ Key Phase 2 adversarial categories include:
 - specificity discipline
 - dictation command vs literal-word ambiguity
 - structured-text partial-field safety under `default`
+
+Key Code-mode adversarial categories (`/correct_code`) include:
+
+- snake_case / CapWords / UPPER_SNAKE_CASE normalization when supported
+- `True` / `False` / `None` casing and dunder handling
+- implicit punctuation inference on `def` / `class` / `if` / `for` headers
+- library-guess resistance (`requests session` must not become `requests.Session`)
+- partial-fragment non-completion (`from fast api import` stays literal)
+- self-correction non-resolution in code context
+- prose utterances stay prose (no forced identifier casing)
 
 ## Practical Rule For Future Edits
 

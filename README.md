@@ -9,11 +9,15 @@ See [`plan.md`](plan.md) for architecture and design principles, and [`phase2-pl
 ```
 VoxScribe/
   plan.md, phase{1..5}-plan.md    # architecture + roadmap
+  correction-spec.md              # /correct (prose) behavioral contract
+  code-mode-spec.md               # /correct_code (Python) behavioral contract
   ios/VoxScribe/                  # Xcode project (SwiftUI, iOS 17+)
   server/
     main.py                       # FastAPI app
     providers/                    # StreamingProvider protocol + AAI impl
-    correction.py                 # Haiku /correct implementation
+    correction.py                 # Haiku /correct (prose) implementation
+    code_correction.py            # Sonnet /correct_code (Python) generator
+    code_validation.py            # deterministic Python validators
     eval/                         # accuracy harness (run_eval.py + manifest)
     .env.example
 ```
@@ -65,6 +69,15 @@ Notes:
 
 - You do not need to define `PORT` yourself. Railway provides it automatically, and the Dockerfile starts Uvicorn on `0.0.0.0:$PORT`.
 - Railway suggests variables from repository-root `.env` files. The root-level `.env.example` exists for that reason; the backend still uses `server/.env` locally.
+
+Correction endpoints:
+
+- `POST /correct` — prose cleanup. Profiles: `default`, `dictation`. Backed by
+  Claude Haiku.
+- `POST /correct_code` — Python code cleanup. English Standard transcriber
+  only, `code_language: "python"` only. Backed by Claude Sonnet plus a
+  deterministic validator; falls back to raw on API error, malformed output,
+  or validation failure.
 
 Smoke checks:
 

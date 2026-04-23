@@ -49,18 +49,32 @@ def _load_cases() -> list[dict[str, Any]]:
 
 
 def _post_correct(base_url: str, case: dict) -> str | None:
-    """POST to /correct, return the corrected text or None on HTTP/network error."""
-    payload = {
-        "session_id": "eval",
-        "vocabulary_revision": 1,
-        "protected_terms": case.get("protected_terms", []),
-        "profile": case.get("profile", "default"),
-        "transcriber": case.get("transcriber", "standard"),
-        "detected_language": case.get("detected_language"),
-        "turns": [{"turn_order": 1, "transcript": case["input_transcript"]}],
-    }
+    """POST a case to the correct endpoint, return the corrected text or None on HTTP/network error."""
+    endpoint = case.get("endpoint", "correct")
+    if endpoint == "correct_code":
+        payload = {
+            "session_id": "eval",
+            "vocabulary_revision": 1,
+            "protected_terms": case.get("protected_terms", []),
+            "code_language": case.get("code_language", "python"),
+            "transcriber": case.get("transcriber", "standard"),
+            "detected_language": case.get("detected_language", "en"),
+            "turns": [{"turn_order": 1, "transcript": case["input_transcript"]}],
+        }
+        url = f"{base_url}/correct_code"
+    else:
+        payload = {
+            "session_id": "eval",
+            "vocabulary_revision": 1,
+            "protected_terms": case.get("protected_terms", []),
+            "profile": case.get("profile", "default"),
+            "transcriber": case.get("transcriber", "standard"),
+            "detected_language": case.get("detected_language"),
+            "turns": [{"turn_order": 1, "transcript": case["input_transcript"]}],
+        }
+        url = f"{base_url}/correct"
     try:
-        resp = httpx.post(f"{base_url}/correct", json=payload, timeout=15.0)
+        resp = httpx.post(url, json=payload, timeout=30.0)
         resp.raise_for_status()
         data = resp.json()
         return data["segments"][0]["text"]
