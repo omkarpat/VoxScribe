@@ -254,20 +254,29 @@ final class TranscriptionSession {
 
         guard let sessionId else { return }
         let vocab = vocabularyProvider()
-        let profile = profileProvider().serverProfile
+        let mode = profileProvider()
         let detectedLanguage = lastDetectedLanguage
         let input = TurnInput(turnOrder: turn.turnOrder, transcript: trimmed)
         let client = serverClient
 
         Task { [weak self] in
             do {
-                let corrected = try await client.correct(
-                    sessionId: sessionId,
-                    vocabulary: vocab,
-                    profile: profile,
-                    detectedLanguage: detectedLanguage,
-                    turns: [input]
-                )
+                let corrected: [Segment]
+                if mode.usesCodeEndpoint {
+                    corrected = try await client.correctCode(
+                        sessionId: sessionId,
+                        vocabulary: vocab,
+                        turns: [input]
+                    )
+                } else {
+                    corrected = try await client.correct(
+                        sessionId: sessionId,
+                        vocabulary: vocab,
+                        profile: mode.serverProfile ?? "default",
+                        detectedLanguage: detectedLanguage,
+                        turns: [input]
+                    )
+                }
                 self?.applyCorrection(corrected)
             } catch {
                 // Correction errors silently preserve the raw-final text.

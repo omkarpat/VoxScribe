@@ -30,6 +30,7 @@ enum Transcriber: String, CaseIterable, Sendable, Identifiable {
 enum CorrectionMode: String, CaseIterable, Sendable, Identifiable {
     case standard
     case dictation
+    case code
 
     var id: String { rawValue }
 
@@ -37,16 +38,21 @@ enum CorrectionMode: String, CaseIterable, Sendable, Identifiable {
         switch self {
         case .standard: return "Standard"
         case .dictation: return "Dictation"
+        case .code: return "Code"
         }
     }
 
-    /// Matches the server's `CorrectionProfile` values in `schemas.py`.
-    var serverProfile: String {
+    /// Matches the server's `CorrectionProfile` values in `schemas.py`. Code
+    /// mode uses the separate `/correct_code` endpoint and has no profile.
+    var serverProfile: String? {
         switch self {
         case .standard: return "default"
         case .dictation: return "dictation"
+        case .code: return nil
         }
     }
+
+    var usesCodeEndpoint: Bool { self == .code }
 }
 
 @Observable
@@ -65,6 +71,12 @@ final class SessionPreferences {
             guard oldValue != transcriber else { return }
             defaults.set(transcriber.rawValue, forKey: Self.transcriberKey)
             revision += 1
+            // Code mode is English Standard-only at launch. If the user picks
+            // multilingual while Code is selected, revert to Standard rather
+            // than leave an unsupported mode active.
+            if transcriber == .multilingual && mode == .code {
+                mode = .standard
+            }
         }
     }
     var localPartialsEnabled: Bool {
