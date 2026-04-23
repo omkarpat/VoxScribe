@@ -93,32 +93,11 @@ final class SessionPreferences {
     private static let localPartialsKey = "voxscribe.localPartials.v1"
 
     static let defaultTerms: [String] = [
-        "yaar",
         "bhai",
-        "bhaiya",
-        "didi",
-        "accha",
-        "arre",
-        "matlab",
-        "bas",
-        "haan",
-        "na",
-        "kya",
-        "chalo",
         "theek hai",
         "chai",
-        "pani",
-        "masala",
-        "lassi",
-        "samosa",
-        "paratha",
-        "biryani",
-        "Mumbai",
-        "Delhi",
-        "Bengaluru",
-        "desi",
-        "jugaad",
-        "timepass",
+        "haan",
+        "na",
     ]
 
     init(defaults: UserDefaults = .standard) {

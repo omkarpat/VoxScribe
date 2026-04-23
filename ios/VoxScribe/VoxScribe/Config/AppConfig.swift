@@ -1,5 +1,5 @@
 import Foundation
 
 enum AppConfig {
-    static let serverBaseURL = URL(string: "http://127.0.0.1:8000")!
+    static let serverBaseURL = URL(string: "https://voxscribe-production.up.railway.app")!
 }
