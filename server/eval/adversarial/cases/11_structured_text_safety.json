@@ -17,11 +17,10 @@
     "input_transcript": "my email is jane dot doe at gmail",
     "assertions": [
       {"type": "contains_exact", "pattern": "gmail", "ignore_case": true},
-      {"type": "not_contains", "pattern": "@"},
       {"type": "not_contains", "pattern": ".com", "ignore_case": true},
       {"type": "not_contains", "pattern": ".org", "ignore_case": true}
     ],
-    "notes": "Partial email should stay unnormalized. Do not invent '@' or a TLD."
+    "notes": "Partial email may format explicitly spoken separators, but must not invent a missing TLD."
   },
   {
     "id": "se-003-partial-phone-negative",

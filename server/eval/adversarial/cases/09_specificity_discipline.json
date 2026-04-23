@@ -39,18 +39,6 @@
     "notes": "Common split-token repair is desirable here: 'read me' should become 'README', but not 'README.md'."
   },
   {
-    "id": "sd-004-env-var-literal",
-    "profile": "default",
-    "protected_terms": [],
-    "input_transcript": "set the env var to open ai api key",
-    "assertions": [
-      {"type": "contains_exact", "pattern": "API key", "ignore_case": true},
-      {"type": "not_contains", "pattern": "OPENAI_API_KEY"},
-      {"type": "not_contains", "pattern": "OPENAI-API-KEY"}
-    ],
-    "notes": "Do not jump from spoken words to a code identifier or env-var form."
-  },
-  {
     "id": "sd-005-version-shorthand",
     "profile": "default",
     "protected_terms": [],

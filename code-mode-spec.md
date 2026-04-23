@@ -113,7 +113,7 @@ With:
 Important interpretation:
 
 - `Standard` now includes the former structured-entry conveniences when strongly
-  supported
+  supported, without inventing missing structured components
 - `Code` is not a renamed `Structured`; it is a new editor-focused mode
 
 ### Code mode meaning
@@ -144,11 +144,10 @@ the UI.
 
 ### Settings screen
 
-Current mode picker:
+Current shipped mode picker:
 
 - `Standard`
 - `Dictation`
-- `Structured`
 
 Proposed mode picker:
 
@@ -159,6 +158,9 @@ Proposed mode picker:
 Proposed Standard-mode footer text:
 
 `General writing mode. Handles punctuation, casing, light cleanup, and common structured text like emails, phone numbers, URLs, IDs, and proper names when strongly supported.`
+
+Standard still should not invent missing structured components. Code-specific
+version, env-var, and identifier shorthand belongs in Code mode.
 
 Proposed Code-mode footer text:
 
@@ -572,6 +574,8 @@ Canonical token repair is allowed when it preserves the same meaning and token:
 - `user id` -> `user_id` when clearly functioning as an identifier
 - `dunder init` -> `__init__` when clearly intended
 - `none` -> `None` in Python code context
+- `open ai api key` -> `OPENAI_API_KEY` when clearly dictated as an environment variable or code identifier
+- `version two point one` -> `version 2.1` when clearly dictated in package/config/code context
 
 ### Spoken symbol words
 
@@ -728,12 +732,14 @@ Why this is worth the restriction:
 
 ## Eval Spec
 
-The current `structured_entry` eval coverage should be retired and replaced by a
-Python Code mode suite for the dedicated `/correct_code` endpoint.
+The former structured-entry positive and safety cases now belong in the standard
+`/correct` eval suite because Standard owns prose/form-entry cleanup. Those cases
+should allow formatting explicitly spoken separators while still forbidding
+invented TLDs, phone digits, URL components, version shorthand, env vars, and
+code identifiers.
 
-Separately, the former structured-entry positive and safety cases should be
-folded into the standard `/correct` eval suite, since those behaviors now
-belong to `Standard`.
+Code mode should add a separate Python suite for the dedicated `/correct_code`
+endpoint rather than reusing the old structured-entry suite.
 
 ### Core eval categories
 
@@ -789,6 +795,10 @@ The suite should aggressively target realistic ASR failure modes:
 - partial code fragments:
   - `from fast api import`
   - `def get user`
+- code identifiers that belong in Code mode, not Standard mode:
+  - `set env var open ai api key` -> `OPENAI_API_KEY`
+- code-specific version shorthand that belongs in Code mode, not Standard mode:
+  - `install pydantic version two` -> `install pydantic version 2`
 - mixed prose/editor commands:
   - `comment this caches the result`
   - `triple quote return the active user triple quote`
@@ -808,6 +818,12 @@ Positive:
 
 - `dunder init self`
   -> `__init__(self):`
+
+- `set env var open ai api key`
+  -> `OPENAI_API_KEY`
+
+- `install pydantic version two point one`
+  -> `install pydantic version 2.1`
 
 Negative / safety:
 
@@ -833,7 +849,7 @@ Validation-specific:
 
 The rollout splits into two PRs so the second is purely additive:
 
-- **PR 1 — `structured_entry` retirement (this session).** Folds former
+- **PR 1 — `structured_entry` retirement.** Folds former
   Structured behavior into `default`, removes `Structured` from the iOS mode
   picker, auto-migrates persisted `structured` preferences to `standard`, and
   keeps `structured_entry` as a deprecated server-side alias of `default` for
