@@ -1,0 +1,56 @@
+[
+  {
+    "id": "da-001-period-literal",
+    "profile": "dictation",
+    "protected_terms": [],
+    "input_transcript": "during that period i was traveling",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "period", "ignore_case": true}
+    ],
+    "notes": "In dictation mode, the noun 'period' must stay literal when it is ordinary prose rather than a punctuation command."
+  },
+  {
+    "id": "da-002-comma-literal",
+    "profile": "dictation",
+    "protected_terms": [],
+    "input_transcript": "we literally say the word comma in this example",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "comma", "ignore_case": true},
+      {"type": "not_contains", "pattern": "word,", "ignore_case": true}
+    ],
+    "notes": "The literal word 'comma' should not be converted into punctuation when the sentence is talking about the word itself."
+  },
+  {
+    "id": "da-003-question-mark-literal",
+    "profile": "dictation",
+    "protected_terms": [],
+    "input_transcript": "i asked why she kept saying question mark out loud",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "question mark", "ignore_case": true},
+      {"type": "not_contains", "pattern": "?"}
+    ],
+    "notes": "The phrase 'question mark' can be quoted speech, not a command. Avoid inserting punctuation from literal mention alone."
+  },
+  {
+    "id": "da-004-new-line-literal",
+    "profile": "dictation",
+    "protected_terms": [],
+    "input_transcript": "new line is the text i want not a formatting command",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "new line", "ignore_case": true},
+      {"type": "not_contains", "pattern": "\n"}
+    ],
+    "notes": "The phrase 'new line' can be content. Do not insert a real newline unless command intent is clear."
+  },
+  {
+    "id": "da-005-open-quote-literal",
+    "profile": "dictation",
+    "protected_terms": [],
+    "input_transcript": "open quote is what the button is called",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "open quote", "ignore_case": true},
+      {"type": "not_contains", "pattern": "\""}
+    ],
+    "notes": "Literal mentions of 'open quote' should stay as words, not become a quote character."
+  }
+]

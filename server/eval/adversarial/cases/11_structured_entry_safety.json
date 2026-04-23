@@ -1,0 +1,65 @@
+[
+  {
+    "id": "se-001-complete-email-positive",
+    "profile": "structured_entry",
+    "protected_terms": [],
+    "input_transcript": "my email is jane dot doe at gmail dot com",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "jane.doe@gmail.com"},
+      {"type": "not_contains", "pattern": " dot ", "ignore_case": true}
+    ],
+    "notes": "Positive control: when every component is present, structured_entry may normalize the email."
+  },
+  {
+    "id": "se-002-partial-email-negative",
+    "profile": "structured_entry",
+    "protected_terms": [],
+    "input_transcript": "my email is jane dot doe at gmail",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "gmail", "ignore_case": true},
+      {"type": "not_contains", "pattern": "@"},
+      {"type": "not_contains", "pattern": ".com", "ignore_case": true},
+      {"type": "not_contains", "pattern": ".org", "ignore_case": true}
+    ],
+    "notes": "Partial email should stay unnormalized. Do not invent '@' or a TLD."
+  },
+  {
+    "id": "se-003-partial-phone-negative",
+    "profile": "structured_entry",
+    "protected_terms": [],
+    "input_transcript": "call me at six five zero five five five",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "six", "ignore_case": true},
+      {"type": "not_contains", "pattern": "\\d", "regex": true},
+      {"type": "not_contains", "pattern": "("},
+      {"type": "not_contains", "pattern": "-"}
+    ],
+    "notes": "Partial phone data should not be reformatted or converted into digits."
+  },
+  {
+    "id": "se-004-partial-url-negative",
+    "profile": "structured_entry",
+    "protected_terms": [],
+    "input_transcript": "go to docs dot example",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "docs", "ignore_case": true},
+      {"type": "not_contains", "pattern": "http://", "ignore_case": true},
+      {"type": "not_contains", "pattern": "https://", "ignore_case": true},
+      {"type": "not_contains", "pattern": "docs.example", "ignore_case": true},
+      {"type": "not_contains", "pattern": ".com", "ignore_case": true}
+    ],
+    "notes": "Partial URL-like speech should not be upgraded into a canonical URL when the TLD and scheme are missing."
+  },
+  {
+    "id": "se-005-partial-version-negative",
+    "profile": "structured_entry",
+    "protected_terms": [],
+    "input_transcript": "install version two point",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "two point", "ignore_case": true},
+      {"type": "not_contains", "pattern": "2.", "ignore_case": true},
+      {"type": "not_contains", "pattern": "2.0", "ignore_case": true}
+    ],
+    "notes": "A truncated version string should not be completed or converted into numeric shorthand."
+  }
+]

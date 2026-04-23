@@ -33,11 +33,16 @@ FALLBACK_RATE_GATE = 0.05  # overall fallback rate on non-fallback_expected case
 
 def _load_cases() -> list[dict[str, Any]]:
     cases = []
+    seen_ids: set[str] = set()
     for path in sorted(CASES_DIR.glob("*.json")):
         with path.open() as f:
             data = json.load(f)
         category = path.stem  # e.g. "01_protected_terms"
         for case in data:
+            case_id = case["id"]
+            if case_id in seen_ids:
+                raise ValueError(f"duplicate adversarial case id: {case_id}")
+            seen_ids.add(case_id)
             case["_category"] = category
             cases.append(case)
     return cases
@@ -50,6 +55,8 @@ def _post_correct(base_url: str, case: dict) -> str | None:
         "vocabulary_revision": 1,
         "protected_terms": case.get("protected_terms", []),
         "profile": case.get("profile", "default"),
+        "transcriber": case.get("transcriber", "standard"),
+        "detected_language": case.get("detected_language"),
         "turns": [{"turn_order": 1, "transcript": case["input_transcript"]}],
     }
     try:
@@ -96,6 +103,8 @@ def _run_case(base_url: str, case: dict, n: int) -> dict[str, Any]:
         "category": case["_category"],
         "raw": raw,
         "profile": case.get("profile", "default"),
+        "transcriber": case.get("transcriber", "standard"),
+        "detected_language": case.get("detected_language"),
         "has_fallback_expected": has_fallback_expected,
         "runs": run_results,
         "majority_pass": majority_pass,
@@ -242,6 +251,9 @@ def _write_report(
         for r in failed:
             lines.append(f"### {r['case_id']} ({r['category']})\n")
             lines.append(f"**Profile**: `{r['profile']}`  ")
+            lines.append(f"**Transcriber**: `{r['transcriber']}`  ")
+            if r["detected_language"] is not None:
+                lines.append(f"**Detected language**: `{r['detected_language']}`  ")
             lines.append(f"**Input**: `{r['raw']}`\n")
             for run in r["runs"]:
                 if run["output"] and not run["passed"]:

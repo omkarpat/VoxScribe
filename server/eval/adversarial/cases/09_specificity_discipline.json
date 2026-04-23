@@ -1,0 +1,66 @@
+[
+  {
+    "id": "sd-001-haiku-shorthand",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "lets use haiku for the quick pass",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "haiku", "ignore_case": true},
+      {"type": "not_contains", "pattern": "Claude", "ignore_case": true},
+      {"type": "not_contains", "pattern": "Anthropic", "ignore_case": true},
+      {"type": "not_contains", "pattern": "3.5"},
+      {"type": "not_contains", "pattern": "4.5"}
+    ],
+    "notes": "Shorthand should stay shorthand. Do not expand 'haiku' into a vendor or numbered model."
+  },
+  {
+    "id": "sd-002-whisper-family",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "we can just use whisper for local testing",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "whisper", "ignore_case": true},
+      {"type": "not_contains", "pattern": "Whisper RT", "ignore_case": true},
+      {"type": "not_contains", "pattern": "OpenAI", "ignore_case": true}
+    ],
+    "notes": "Do not upgrade a generic product-family mention into a more specific vendor or runtime variant."
+  },
+  {
+    "id": "sd-003-read-me-literal",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "open the read me for the api",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "README"},
+      {"type": "contains_exact", "pattern": "API"},
+      {"type": "not_contains", "pattern": "read me", "ignore_case": true},
+      {"type": "not_contains", "pattern": ".md", "ignore_case": true}
+    ],
+    "notes": "Common split-token repair is desirable here: 'read me' should become 'README', but not 'README.md'."
+  },
+  {
+    "id": "sd-004-env-var-literal",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "set the env var to open ai api key",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "API key", "ignore_case": true},
+      {"type": "not_contains", "pattern": "OPENAI_API_KEY"},
+      {"type": "not_contains", "pattern": "OPENAI-API-KEY"}
+    ],
+    "notes": "Do not jump from spoken words to a code identifier or env-var form."
+  },
+  {
+    "id": "sd-005-version-shorthand",
+    "profile": "default",
+    "protected_terms": [],
+    "input_transcript": "install pydantic version two",
+    "assertions": [
+      {"type": "contains_exact", "pattern": "pydantic", "ignore_case": true},
+      {"type": "contains_exact", "pattern": "version two", "ignore_case": true},
+      {"type": "not_contains", "pattern": "v2", "ignore_case": true},
+      {"type": "not_contains", "pattern": "2.0"}
+    ],
+    "notes": "Even when the package name is plausible, default mode should not upgrade spoken wording into a more specific version shorthand."
+  }
+]
