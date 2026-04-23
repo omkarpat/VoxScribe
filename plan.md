@@ -253,8 +253,8 @@ Rules:
 
 - **Streaming ASR:** Phases 1 and 2 use conservative `keyterms_prompt` only. Phase 4 wires a small set of English-first streaming prompt templates and `UpdateConfiguration` for mid-session `prompt` / `keyterms_prompt` changes. The live prompt stays narrow and instruction-like so we do not trade away turn detection for cleverness.
 - **Phase 1 `/correct`:** single-turn cleanup prompt that preserves meaning and protected spellings.
-- **Phase 2 `/correct`:** tighter single-turn prompt, prompt-cached, with deterministic server-side safety guards (length deviation, protected-term mutation, schema) and raw fallback on guard failure. Gated by an adversarial eval suite under `server/eval/adversarial/`.
-- **Phase 3 `/correct`:** windowed rewrite prompt with explicit examples for self-corrections, structured output, and compact `session_memory` to carry older frozen context forward without replaying the whole transcript.
+- **Phase 2 `/correct`:** tighter single-turn prompt, prompt-cached, with deterministic server-side safety guards (length deviation, protected-term mutation, schema) and raw fallback on guard failure. Standard mode absorbs former structured-entry conveniences only when strongly supported: spoken separators may be formatted, but missing TLDs, URL pieces, phone digits, version shorthand, env vars, and code identifiers are not invented. Gated by an adversarial eval suite under `server/eval/adversarial/`.
+- **Phase 3 `/correct`:** windowed rewrite prompt with explicit examples for self-corrections, structured tool output, and compact `session_memory` to carry older frozen context forward without replaying the whole transcript.
 - Prompt caching is load-bearing from Phase 2 onward — track cache-read vs cache-creation tokens so prompt edits that break cache hit rate are visible.
 
 ### Future multilingual path

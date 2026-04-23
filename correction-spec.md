@@ -37,7 +37,7 @@ Allowed behaviors:
 - Clean harmless repeated words or false starts when meaning does not change.
 - Preserve `protected_terms` exactly.
 - Support dictation semantics in a dedicated profile.
-- Support structured-entry normalization in a dedicated profile.
+- Normalize complete structured tokens (email, phone, URL, numeric ID) within `default` when every required component is present in the raw turn.
 - Return an empty `cleaned_text` when the entire turn is pure disfluency, unintelligible noise, or a known upstream-ASR boilerplate hallucination with no substantive speech. The client drops segments with empty corrected text instead of rendering a blank row.
 
 Disallowed behaviors:
@@ -49,9 +49,10 @@ Disallowed behaviors:
 - Strip short standalone answer words such as "yes", "yeah", "no", "ok". These are substantive content, not disfluency, even when they are the entire turn.
 
 Profiles:
-- `default`: punctuation, casing, filler cleanup, protected-term preservation.
+- `default`: punctuation, casing, filler cleanup, protected-term preservation, and normalization of complete structured tokens (emails, phone numbers, URLs, numeric IDs) when every required component is present in the raw turn. Spoken version shorthand stays literal in standard/default mode.
 - `dictation`: `default` plus spoken punctuation and line/paragraph commands.
-- `structured_entry`: `default` plus normalization of emails, phone numbers, URLs, IDs, and similar structured content when strongly supported.
+
+The previously separate `structured_entry` profile has been retired. Its normalization behavior now lives in `default`; its partial-field safety rules are enforced by the existing specificity-discipline rules. Partial structured fragments may format explicitly spoken separators, but must not gain invented missing components. The server accepts `structured_entry` as a deprecated alias of `default` for one compatibility window.
 
 Phase 2 request shape:
 
@@ -153,7 +154,7 @@ Allowed edits:
 - Harmless repetition cleanup.
 - Empty output when the turn is 100% disfluency, noise, or a standalone upstream-ASR hallucination (for example Whisper-RT boilerplate like "Thanks for watching", "Please subscribe", "Subtitles by the Amara.org community"). Only when the phrase is the entire turn — if it appears inside real speech, preserve it.
 - Dictation command interpretation in `dictation`.
-- Structured normalization in `structured_entry`.
+- Normalization of complete structured tokens (emails, phone numbers, URLs, numeric IDs) in `default` when every required component is present.
 - Self-correction resolution only in `semantic_rewrite`.
 
 Forbidden edits:
@@ -216,7 +217,7 @@ Phase 2 eval categories:
 - Negation preservation.
 - Dates, times, and numbers.
 - Dictation commands and command-literal ambiguity.
-- Structured-entry normalization for emails, phone numbers, URLs, IDs, and versions, including partial-field safety cases.
+- Structured-text normalization for emails, phone numbers, URLs, and IDs under `default`, including partial-field safety cases. Version shorthand conservatism is covered by specificity-discipline cases.
 
 Phase 3 eval categories:
 - Cross-turn number correction.

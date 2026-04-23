@@ -65,6 +65,10 @@ New harness under `server/eval/adversarial/`:
   5. Within-turn false-start cleanup (positive cases)
   6. Hallucination resistance (truncated / garbled input)
   7. Punctuation and casing (positive cases)
+  8. Multilingual transliteration without translation
+  9. Specificity discipline for product names, code-like tokens, env vars, and version shorthand
+  10. Dictation command vs literal-word ambiguity
+  11. Structured-text safety for emails, phone numbers, URLs, IDs, and partial fragments
 - **Runner**: hits the real `/correct` endpoint (local FastAPI), records pass/fail per case, aggregates per-category pass rate and per-category fallback rate, writes a markdown report.
 - **Gates**:
   - Protected-term fidelity: ≥95% pass.
@@ -86,6 +90,7 @@ New harness under `server/eval/adversarial/`:
 - **Deterministic assertions only.** LLM-as-judge creates correlated-failure risk — the grader and the generator share biases. Every assertion is substring / regex / length / set-membership.
 - **Self-correction is a Phase 3 capability.** If Phase 2's prompt accidentally resolves "two, no three" → "three", that's a regression to catch, not an early feature to enjoy.
 - **Fallback to raw beats clever recovery.** When a safety guard trips, the raw text stays. No second attempt, no partial accept.
+- **Structured text stays conservative.** Standard mode may format explicitly spoken separators, but it must not invent missing TLDs, phone digits, URL components, version numbers, env vars, or code identifiers.
 - **No live-path changes.** Audio capture, WS lifecycle, and UI stay exactly as Phase 1 shipped. Phase 2 is all backend prompt + tests.
 
 ## Success criteria

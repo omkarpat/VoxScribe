@@ -32,7 +32,8 @@ Before shipping a prompt change, sanity-check these questions:
 - Would this change cause `haiku` to become `Claude Haiku` without explicit raw support?
 - Would this change correctly allow `read me` to become `README` while still blocking `README.md` without explicit raw support?
 - Would this change cause `api key` to become an env var or identifier?
-- Would this change cause partial emails, URLs, or versions to be completed?
+- Would this change cause `version two` to become `version 2` in standard mode?
+- Would this change cause partial emails, phones, URLs, or versions to gain invented missing components?
 
 If the answer might be yes, tighten the prompt or add a safety case first.
 
@@ -60,7 +61,7 @@ Minimum failure modes that should stay covered:
 - dictation command/literal ambiguity
 - hallucinated additions on fragments
 - translation of code-switched or multilingual content
-- normalization of partial structured data
+- invented completion of partial structured data
 
 ## Safety Posture
 

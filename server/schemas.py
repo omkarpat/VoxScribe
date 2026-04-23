@@ -1,8 +1,11 @@
-from typing import Literal
+import logging
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
-CorrectionProfile = Literal["default", "dictation", "structured_entry"]
+logger = logging.getLogger(__name__)
+
+CorrectionProfile = Literal["default", "dictation"]
 Transcriber = Literal["standard", "multilingual"]
 
 
@@ -32,6 +35,16 @@ class CorrectRequest(BaseModel):
     transcriber: Transcriber = "standard"
     detected_language: str | None = None
     turns: list[TurnInput]
+
+    @field_validator("profile", mode="before")
+    @classmethod
+    def _alias_retired_profiles(cls, value: Any) -> Any:
+        # structured_entry was folded into default; accept it from older clients
+        # during one compatibility window.
+        if value == "structured_entry":
+            logger.warning("received deprecated profile=structured_entry; aliasing to default")
+            return "default"
+        return value
 
 
 class Segment(BaseModel):
