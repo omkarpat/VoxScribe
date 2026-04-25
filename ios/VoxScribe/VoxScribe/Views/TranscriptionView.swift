@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TranscriptionView: View {
     @State private var preferences = SessionPreferences()
+    @State private var oneDrive = OneDriveIntegration()
     @State private var session: TranscriptionSession?
     @State private var elapsed: TimeInterval = 0
     @State private var timerTask: Task<Void, Never>?
@@ -19,6 +20,9 @@ struct TranscriptionView: View {
                 .animation(.easeInOut(duration: 0.2), value: displayedError)
             controls
         }
+        .task {
+            await oneDrive.flushPendingUploads()
+        }
         .onDisappear { timerTask?.cancel() }
         .onChange(of: sessionPhaseMarker) { _, _ in
             if case .failed = session?.phase {
@@ -27,7 +31,11 @@ struct TranscriptionView: View {
             }
         }
         .sheet(isPresented: $showSettings) {
-            SettingsView(preferences: preferences, isRecording: isRunning)
+            SettingsView(
+                preferences: preferences,
+                oneDrive: oneDrive,
+                isRecording: isRunning
+            )
         }
     }
 
@@ -234,7 +242,10 @@ struct TranscriptionView: View {
     private func stopRecording() async {
         timerTask?.cancel()
         timerTask = nil
-        await session?.stop()
+        guard let session else { return }
+        await session.stop()
+        let finalized = await session.finalizeForExport()
+        await oneDrive.uploadFinalizedTranscript(finalized)
     }
 
     private func startTimer() {

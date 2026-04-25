@@ -8,7 +8,7 @@ struct SessionVocabulary: Sendable, Equatable {
     let revision: Int
 }
 
-enum Transcriber: String, CaseIterable, Sendable, Identifiable {
+enum Transcriber: String, CaseIterable, Codable, Sendable, Identifiable {
     case standard
     case multilingual
 
@@ -27,7 +27,7 @@ enum Transcriber: String, CaseIterable, Sendable, Identifiable {
     var supportsKeyterms: Bool { self == .standard }
 }
 
-enum CorrectionMode: String, CaseIterable, Sendable, Identifiable {
+enum CorrectionMode: String, CaseIterable, Codable, Sendable, Identifiable {
     case standard
     case dictation
     case code

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Bindable var preferences: SessionPreferences
+    let oneDrive: OneDriveIntegration
     let isRecording: Bool
 
     @Environment(\.dismiss) private var dismiss
@@ -21,6 +22,7 @@ struct SettingsView: View {
                 if preferences.transcriber.supportsKeyterms {
                     keytermsSection
                 }
+                oneDriveSection
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -122,6 +124,109 @@ struct SettingsView: View {
             Text("Live transcription")
         } footer: {
             Text("Uses Apple's on-device speech recognizer for snappier partials as you speak. Finals still come from the server. Changes apply on the next session.")
+        }
+    }
+
+    // MARK: - OneDrive section
+
+    private var oneDriveSection: some View {
+        Section {
+            oneDriveRows
+        } header: {
+            Text("OneDrive")
+        } footer: {
+            Text(oneDriveFooter)
+        }
+    }
+
+    @ViewBuilder
+    private var oneDriveRows: some View {
+        let state = oneDrive.connectionStore.state
+        switch state.status {
+        case .disconnected:
+            connectRow(title: "Connect Microsoft")
+        case .connected:
+            connectedRows(state: state)
+        case .expired:
+            expiredRows(state: state)
+        }
+        if let error = oneDrive.lastConnectError {
+            Text(error)
+                .font(.footnote)
+                .foregroundStyle(.red)
+        }
+    }
+
+    private func connectRow(title: String) -> some View {
+        Button {
+            Task { await oneDrive.connect() }
+        } label: {
+            HStack {
+                Text(title)
+                    .foregroundStyle(canConnect ? Color.accentColor : .secondary)
+                Spacer()
+                if oneDrive.connectInFlight {
+                    ProgressView().controlSize(.small)
+                }
+            }
+        }
+        .disabled(!canConnect)
+    }
+
+    @ViewBuilder
+    private func connectedRows(state: OneDriveConnectionState) -> some View {
+        LabeledContent("Connected") {
+            if let email = state.email {
+                Text(email).foregroundStyle(.secondary)
+            }
+        }
+        if let secondary = uploadSecondaryText(for: state) {
+            Text(secondary)
+                .font(.footnote)
+                .foregroundStyle(state.lastUploadStatus == .failed ? .red : .secondary)
+        }
+        Button(role: .destructive) {
+            Task { await oneDrive.disconnect() }
+        } label: {
+            Text("Disconnect")
+        }
+        .disabled(isRecording)
+    }
+
+    @ViewBuilder
+    private func expiredRows(state: OneDriveConnectionState) -> some View {
+        LabeledContent("Microsoft connection expired") {
+            if let email = state.email {
+                Text(email).foregroundStyle(.secondary)
+            }
+        }
+        connectRow(title: "Reconnect Microsoft")
+    }
+
+    private func uploadSecondaryText(for state: OneDriveConnectionState) -> String? {
+        switch state.lastUploadStatus {
+        case .inProgress: return "Last upload in progress…"
+        case .failed: return "Last upload failed"
+        case .success, .none: return nil
+        }
+    }
+
+    private var canConnect: Bool {
+        !isRecording && !oneDrive.connectInFlight
+    }
+
+    private var oneDriveFooter: String {
+        let state = oneDrive.connectionStore.state
+        switch state.status {
+        case .disconnected:
+            return "Completed sessions can upload automatically to your OneDrive."
+        case .connected:
+            if state.lastUploadStatus == .failed {
+                return "We'll retry on your next completed session or when you reopen the app."
+            }
+            return "Completed sessions upload automatically to your OneDrive root folder."
+        case .expired:
+            return "Tap Reconnect Microsoft to reauthorize."
         }
     }
 
@@ -259,5 +364,9 @@ struct SettingsView: View {
 }
 
 #Preview {
-    SettingsView(preferences: SessionPreferences(), isRecording: false)
+    SettingsView(
+        preferences: SessionPreferences(),
+        oneDrive: OneDriveIntegration(),
+        isRecording: false
+    )
 }

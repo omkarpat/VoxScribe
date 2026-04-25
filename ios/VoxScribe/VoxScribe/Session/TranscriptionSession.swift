@@ -1,12 +1,12 @@
 import Foundation
 import Observation
 
-enum SegmentState: Sendable, Equatable {
+nonisolated enum SegmentState: String, Sendable, Codable, Equatable {
     case rawFinal
     case corrected
 }
 
-struct TranscriptSegment: Sendable, Equatable, Identifiable {
+nonisolated struct TranscriptSegment: Sendable, Codable, Equatable, Identifiable {
     let id: String
     var text: String
     var state: SegmentState
@@ -77,6 +77,7 @@ final class TranscriptionSession {
     private var localPumpTask: Task<Void, Never>?
     private var localReceiveTask: Task<Void, Never>?
     private var localEnabled = false
+    private var correctionTasks: [Task<Void, Never>] = []
 
     init(
         vocabulary: @escaping @MainActor () -> SessionVocabulary,
@@ -212,6 +213,34 @@ final class TranscriptionSession {
         phase = .stopped
     }
 
+    // MARK: - export
+
+    /// Awaits any in-flight correction tasks and returns a snapshot of the
+    /// final transcript. Safe to call after `stop()` — the stop path cancels
+    /// the network pumps but leaves correction tasks to complete naturally.
+    func finalizeForExport() async -> FinalizedTranscript {
+        let pending = correctionTasks
+        correctionTasks.removeAll()
+        for task in pending {
+            _ = await task.value
+        }
+        let endedAt = Date()
+        let startedAt = self.startedAt ?? endedAt
+        let rendered = segments
+            .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+        return FinalizedTranscript(
+            sessionId: sessionId,
+            startedAt: startedAt,
+            endedAt: endedAt,
+            mode: profileProvider(),
+            transcriber: vocabularyProvider().transcriber,
+            segments: segments,
+            renderedText: rendered
+        )
+    }
+
     // MARK: - message handling
 
     private func handleStreamEnded() async {
@@ -259,7 +288,7 @@ final class TranscriptionSession {
         let input = TurnInput(turnOrder: turn.turnOrder, transcript: trimmed)
         let client = serverClient
 
-        Task { [weak self] in
+        let task = Task { [weak self] in
             do {
                 let corrected: [Segment]
                 if mode.usesCodeEndpoint {
@@ -282,6 +311,7 @@ final class TranscriptionSession {
                 // Correction errors silently preserve the raw-final text.
             }
         }
+        correctionTasks.append(task)
     }
 
     private func applyCorrection(_ corrected: [Segment]) {
